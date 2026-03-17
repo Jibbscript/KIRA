@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from krim_sdk import Agent, AgentOptions, NullEventHandler
 from krim_sdk.events import Event, EventType
 from krim_sdk.models import ClaudeModel, OpenAIModel, VertexModel
-from krim_sdk.skills import discover_skills
+from krim_sdk.skills import Skill, discover_skills
 from krim_sdk.tools import BashTool, SkillTool, default_tools, default_tools_with_skills
 
 from kiraclaw_agentd.mcp_runtime import McpRuntime
@@ -56,8 +57,28 @@ def create_model(provider: str, model: str | None, max_tokens: int):
     raise ValueError(f"unknown provider: {provider}")
 
 
+def _discover_available_skills(settings: KiraClawSettings) -> dict[str, Skill]:
+    if not settings.skills_enabled:
+        return {}
+
+    skills: dict[str, Skill] = {}
+    search_roots: list[Path] = [
+        settings.data_dir,
+        settings.workspace_dir / ".krim",
+        settings.workspace_dir,
+    ]
+    seen: set[Path] = set()
+    for root in search_roots:
+        if root in seen:
+            continue
+        seen.add(root)
+        skills.update(discover_skills(global_dir=root, project_dir=None))
+    return skills
+
+
 def _configure_tools(settings: KiraClawSettings):
-    if settings.skills_enabled:
+    skills = _discover_available_skills(settings)
+    if skills:
         tools, skill_tool = default_tools_with_skills()
     else:
         tools = default_tools()
@@ -74,7 +95,6 @@ def _configure_tools(settings: KiraClawSettings):
                 default_timeout=settings.bash_timeout,
             )
 
-    skills = discover_skills(settings.data_dir, None) if settings.skills_enabled else {}
     if isinstance(skill_tool, SkillTool):
         skill_tool.configure(skills)
 

@@ -22,7 +22,7 @@ Add one thin layer at a time:
 3. `desktop` becomes the packaged shell.
 4. Slack arrives first as the only chat channel.
 5. Desktop direct chat can arrive on the same daemon boundary later.
-6. Memory, schedules, and proactive systems arrive later as explicit modules.
+6. Memory, schedules, and watch systems arrive later as explicit modules.
 
 ## OpenClaw Alignment
 
@@ -159,17 +159,17 @@ Initial implications:
 - future support for supervised loop jobs on top of `krim-sdk.Agent`
 - per-session serialized execution
 
-## Minimal Proactive Layer
+## Watch Layer
 
-KIRA-Slack proved that checker-driven proactive suggestions matter.
-KiraClaw keeps that idea, but in a much smaller shape:
+KIRA-Slack proved that recurring observation and proactive work matter.
+KiraClaw keeps that value, but in a simpler `watch` shape:
 
-1. checker producers create `CheckerEvent`
-2. the local daemon ingests those events through one inbox/API boundary
-3. the daemon deduplicates and records `SuggestionRecord`
-4. Slack dispatch stays optional
+1. a watch has time, condition, and action
+2. scheduler decides when the watch runs
+3. the same KRIM-based agent loop evaluates the watch
+4. the watch can no-op, write memory, send a message, or perform tool-driven work
 
-This avoids rebuilding a large scheduler/orchestrator graph before the product boundary is stable.
+This avoids rebuilding a separate checker/proactive graph before the product boundary is stable.
 
 ## What We Are Not Building Yet
 
@@ -180,7 +180,7 @@ This avoids rebuilding a large scheduler/orchestrator graph before the product b
 - account migration logic inside the daemon
 - full desktop direct-chat UX
 
-These come only after the small proactive substrate is stable.
+These come only after the small watch substrate is stable.
 
 ## Initial API Contract
 
@@ -188,8 +188,10 @@ The daemon starts with a very small API:
 
 - `GET /health`
 - `GET /v1/runtime`
-- `GET /v1/proactive/suggestions`
-- `POST /v1/checker-events`
+- `GET /v1/watches`
+- `GET /v1/watch-runs`
+- `POST /v1/watches`
+- `POST /v1/watches/{watch_id}/run`
 - `POST /v1/runs`
 
 That is enough to validate:

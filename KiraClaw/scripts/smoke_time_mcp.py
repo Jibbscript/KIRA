@@ -24,7 +24,6 @@ async def main() -> int:
             workspace_dir=base / "workspace",
             home_mode="modern",
             slack_enabled=False,
-            proactive_enabled=False,
             mcp_enabled=True,
             mcp_time_enabled=True,
         )

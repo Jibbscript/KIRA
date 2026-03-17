@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import logging
+import re
 import sys
 import threading
 from pathlib import Path
@@ -27,6 +29,7 @@ MS365_MCP_COMMAND = ["npx", "-y", "@batteryho/lokka-cached"]
 ATLASSIAN_MCP_COMMAND = ["npx", "-y", "mcp-remote", "https://mcp.atlassian.com/v1/sse"]
 TABLEAU_MCP_COMMAND = ["npx", "-y", "@tableau/mcp-server@latest"]
 PLAYWRIGHT_MCP_COMMAND = ["npx", "-y", "@playwright/mcp@latest"]
+REMOTE_MCP_NAME_PATTERN = re.compile(r"^[a-z0-9-]+$")
 
 
 def _is_present(value: str | None) -> bool:
@@ -42,6 +45,36 @@ def _normalize_gitlab_api_url(url: str) -> str:
     if normalized == "https://gitlab.com":
         return "https://gitlab.com/api/v4"
     return f"{normalized}/api/v4" if "/api/" not in normalized else normalized
+
+
+def _parse_remote_mcp_servers(raw: str) -> list[dict[str, str]]:
+    if not raw.strip():
+        return []
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        logger.warning("Failed to parse REMOTE_MCP_SERVERS: %s", exc)
+        return []
+    if not isinstance(payload, list):
+        logger.warning("REMOTE_MCP_SERVERS must be a JSON array.")
+        return []
+
+    rows: list[dict[str, str]] = []
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name", "")).strip().lower()
+        url = str(item.get("url", "")).strip()
+        if not name or not url:
+            continue
+        if not REMOTE_MCP_NAME_PATTERN.fullmatch(name):
+            logger.warning("Skipping custom MCP with invalid name: %s", name)
+            continue
+        rows.append({
+            "name": name,
+            "url": url,
+        })
+    return rows
 
 
 def _external_mcp_configs(settings: KiraClawSettings) -> list[McpServerConfig]:
@@ -135,6 +168,15 @@ def _external_mcp_configs(settings: KiraClawSettings) -> list[McpServerConfig]:
             McpServerConfig(
                 name="playwright",
                 command=command,
+            )
+        )
+
+    for server in _parse_remote_mcp_servers(settings.remote_mcp_servers):
+        configs.append(
+            McpServerConfig(
+                name=server["name"],
+                command=["npx", "-y", "mcp-remote", server["url"]],
+                wire_format="line",
             )
         )
 

@@ -58,6 +58,33 @@ contextBridge.exposeInMainWorld("kiraclaw", {
   getRuntime() {
     return request("/v1/runtime");
   },
+  getWatches() {
+    return request("/v1/watches");
+  },
+  getWatchRuns(limit = 50, watchId = "") {
+    const query = new URLSearchParams();
+    query.set("limit", String(limit));
+    if (watchId) {
+      query.set("watch_id", watchId);
+    }
+    return request(`/v1/watch-runs?${query.toString()}`);
+  },
+  saveWatch(payload) {
+    return request("/v1/watches", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  deleteWatch(watchId) {
+    return request(`/v1/watches/${encodeURIComponent(watchId)}`, {
+      method: "DELETE",
+    });
+  },
+  runWatchNow(watchId) {
+    return request(`/v1/watches/${encodeURIComponent(watchId)}/run`, {
+      method: "POST",
+    });
+  },
   runPrompt(payload) {
     return request("/v1/runs", {
       method: "POST",

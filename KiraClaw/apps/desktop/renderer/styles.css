@@ -871,6 +871,18 @@ button.ghost:hover {
   background: rgba(255, 255, 255, 0.06);
 }
 
+.danger-button {
+  background: rgba(241, 160, 135, 0.12);
+  color: #ffd1c3;
+  border: 1px solid rgba(241, 160, 135, 0.26);
+}
+
+.danger-button:hover {
+  transform: translateY(-1px);
+  background: rgba(241, 160, 135, 0.18);
+  border-color: rgba(241, 160, 135, 0.4);
+}
+
 button:disabled {
   cursor: default;
   opacity: 0.46;
@@ -910,6 +922,123 @@ button:disabled {
   gap: 14px;
 }
 
+.watch-list,
+.watch-run-list,
+.remote-mcp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.watch-card,
+.watch-item {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(12, 17, 24, 0.56);
+  color: var(--text);
+  text-align: left;
+}
+
+.watch-card:hover,
+.watch-item:hover {
+  border-color: rgba(141, 176, 255, 0.24);
+  background: rgba(18, 24, 33, 0.74);
+}
+
+.watch-card.active,
+.watch-item.open,
+.watch-item[open] {
+  border-color: rgba(141, 176, 255, 0.36);
+  background: rgba(35, 46, 66, 0.78);
+}
+
+.watch-item {
+  padding: 0;
+}
+
+.watch-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.watch-summary::-webkit-details-marker {
+  display: none;
+}
+
+.watch-summary-copy {
+  min-width: 0;
+}
+
+.watch-summary-side {
+  flex: 0 0 auto;
+}
+
+.watch-item-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 12px 12px;
+}
+
+.watch-item-grid {
+  gap: 12px;
+}
+
+.watch-item-actions {
+  justify-content: flex-start;
+}
+
+.watch-inline-runs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.watch-add-row {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.watch-card-head,
+.watch-run-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.watch-card strong,
+.watch-run-item strong {
+  font-size: 11px;
+}
+
+.watch-card-meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.watch-run-item {
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(12, 17, 24, 0.46);
+}
+
+.watch-item textarea {
+  min-height: 76px;
+}
+
 .channel-list {
   display: grid;
   gap: 10px;
@@ -925,6 +1054,34 @@ button:disabled {
 .channel-card.active {
   border-color: rgba(141, 176, 255, 0.22);
   background: rgba(100, 130, 255, 0.1);
+}
+
+.remote-mcp-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(11, 15, 22, 0.72);
+}
+
+.remote-mcp-card-empty {
+  border-style: dashed;
+}
+
+.remote-mcp-grid {
+  gap: 12px;
+}
+
+.remote-mcp-actions,
+.remote-mcp-add-row {
+  justify-content: flex-start;
+}
+
+.remote-mcp-actions {
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .channel-card-head {

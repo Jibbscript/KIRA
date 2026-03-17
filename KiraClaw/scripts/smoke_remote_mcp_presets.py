@@ -24,7 +24,6 @@ async def _probe(label: str, **flags: bool) -> dict:
             workspace_dir=base / "workspace",
             home_mode="modern",
             slack_enabled=False,
-            proactive_enabled=False,
             mcp_enabled=True,
             **flags,
         )

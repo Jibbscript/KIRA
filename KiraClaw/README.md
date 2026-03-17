@@ -61,15 +61,16 @@ The daemon now prefers legacy KIRA-Slack state when it already exists:
 - legacy `~/.kira/credential.json` is reused for Vertex AI if no explicit provider was set
 - `KIRACLAW_PROVIDER` can still be set to `claude`, `openai`, or `vertex_ai`
 
-## Minimal Proactive System
+## Watch System
 
-The first proactive layer is intentionally small:
+KiraClaw replaces the old checker/proactive split with a smaller `watch` model:
 
-- checker producers drop events into the local daemon
-- the daemon deduplicates and stores proactive suggestions
-- Slack auto-dispatch is optional and off by default
+- schedule decides when a watch runs
+- each watch defines an instruction, a condition, and an action
+- the same KRIM-based agent loop runs the watch
+- the watch may use tools, write memory, send Slack messages, or do nothing
 
-This keeps the KIRA-Slack checker idea without rebuilding its full scheduler graph up front.
+This keeps the KIRA-Slack checker idea without rebuilding a separate checker graph.
 
 ## Running The Daemon
 
@@ -89,26 +90,13 @@ Useful endpoints:
 
 - `GET /v1/runtime`
 - `GET /v1/sessions`
-- `GET /v1/proactive/suggestions`
-- `POST /v1/checker-events`
+- `GET /v1/watches`
+- `GET /v1/watch-runs`
+- `POST /v1/watches`
+- `POST /v1/watches/{watch_id}/run`
 - `POST /v1/runs`
 
 Slack startup is automatic when the Slack tokens are present in `.env` or legacy `~/.kira/config.env`.
-
-Example checker event:
-
-```bash
-curl -X POST http://127.0.0.1:8787/v1/checker-events \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "source": "jira",
-    "title": "Assigned ticket changed",
-    "summary": "PROJ-123 moved to In Review.",
-    "suggestion_text": "I noticed PROJ-123 moved to In Review. I can summarize the impact and next actions if you want.",
-    "execution_prompt": "Summarize PROJ-123 and propose the next actions.",
-    "channel_id": "D123456"
-  }'
-```
 
 ## Running The Desktop Shell
 

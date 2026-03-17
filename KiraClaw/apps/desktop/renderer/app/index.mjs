@@ -1,10 +1,11 @@
 import { applyAgentIdentity } from "./branding.mjs";
 import { clearChatThread, bindChatActions } from "./chat.mjs";
-import { initializePasswordToggles } from "./dom.mjs";
+import { byId, initializePasswordToggles } from "./dom.mjs";
 import { updateHomeStatus, bindHomeActions } from "./home.mjs";
 import { bindNavigation } from "./navigation.mjs";
 import { bindSettingsActions, applySettingsToForm, collectSettingsUpdates, setSettingsStatus } from "./settings.mjs";
 import { state } from "./state.mjs";
+import { bindWatchActions, collectWatchPayload, getNewWatchId, renderWatchState, setWatchStatus, validateWatchPayload } from "./watch.mjs";
 
 const api = window.kiraclaw;
 let engineActionTimer = null;
@@ -15,6 +16,16 @@ function renderDesktopState() {
   }
   applyAgentIdentity(state);
   updateHomeStatus(state, state.daemonStatus, state.runtime);
+  if (!(state.activeView === "watch" && state.watchDirty)) {
+    renderWatchState(state);
+  }
+}
+
+async function refreshActiveView() {
+  await refreshRuntime();
+  if (state.activeView === "watch") {
+    await loadWatchData();
+  }
 }
 
 function setEngineAction(nextState) {
@@ -60,6 +71,28 @@ async function loadAppMeta() {
   renderDesktopState();
 }
 
+async function loadWatchData() {
+  try {
+    const [watchesResponse, runsResponse] = await Promise.all([
+      api.getWatches(),
+      api.getWatchRuns(50),
+    ]);
+    state.watches = watchesResponse.watches || [];
+    state.watchRuns = runsResponse.runs || [];
+    if (!state.watchDraft && state.selectedWatchId && !state.watches.some((row) => row.watch_id === state.selectedWatchId)) {
+      state.selectedWatchId = null;
+    }
+    if (!state.watchDraft && !state.selectedWatchId && state.watches.length > 0) {
+      state.selectedWatchId = state.watches[0].watch_id;
+    }
+    if (!(state.activeView === "watch" && state.watchDirty)) {
+      renderWatchState(state);
+    }
+  } catch (error) {
+    setWatchStatus(`Watch load failed: ${error.message}`);
+  }
+}
+
 async function refreshRuntime() {
   try {
     state.daemonStatus = await api.getDaemonStatus();
@@ -90,6 +123,84 @@ async function refreshRuntime() {
   }
 
   renderDesktopState();
+}
+
+async function saveWatch(watchId) {
+  setWatchStatus("Saving watch...");
+  try {
+    const payload = collectWatchPayload(watchId);
+    if (!payload) {
+      setWatchStatus("Watch form is missing.");
+      return;
+    }
+    const validationError = validateWatchPayload(payload);
+    if (validationError) {
+      setWatchStatus(validationError);
+      return;
+    }
+    const response = await api.saveWatch(payload);
+    state.selectedWatchId = response.watch?.watch_id || payload.watch_id || null;
+    state.watchDraft = false;
+    state.watchDirty = false;
+    await loadWatchData();
+    setWatchStatus("Watch saved.");
+  } catch (error) {
+    setWatchStatus(`Watch save failed: ${error.message}`);
+  }
+}
+
+async function runWatchNow(watchId) {
+  if (!watchId) {
+    setWatchStatus("Select a watch first.");
+    return;
+  }
+  setWatchStatus("Running watch now...");
+  try {
+    const response = await api.runWatchNow(watchId);
+    await loadWatchData();
+    setWatchStatus(response.run?.state === "completed" ? "Watch run completed." : "Watch run finished.");
+  } catch (error) {
+    setWatchStatus(`Run failed: ${error.message}`);
+  }
+}
+
+async function deleteWatch(watchId) {
+  if (!watchId) {
+    setWatchStatus("Select a watch first.");
+    return;
+  }
+  setWatchStatus("Deleting watch...");
+  try {
+    await api.deleteWatch(watchId);
+    state.selectedWatchId = state.selectedWatchId === watchId ? null : state.selectedWatchId;
+    state.watchDraft = false;
+    state.watchDirty = false;
+    await loadWatchData();
+    setWatchStatus("Watch deleted.");
+  } catch (error) {
+    setWatchStatus(`Delete failed: ${error.message}`);
+  }
+}
+
+function resetWatchForm() {
+  if (state.watchDraft) {
+    state.selectedWatchId = getNewWatchId();
+    renderWatchState(state);
+    const draftConditionInput = document.querySelector(`[data-watch-item="${getNewWatchId()}"] [data-watch-input="condition"]`);
+    draftConditionInput?.focus();
+    draftConditionInput?.scrollIntoView({ block: "nearest" });
+    setWatchStatus("Finish the current draft first.");
+    return;
+  }
+
+  state.selectedWatchId = getNewWatchId();
+  state.watchDraft = true;
+  state.watchDirty = false;
+  renderWatchState(state);
+  const draftConditionInput = document.querySelector(`[data-watch-item="${getNewWatchId()}"] [data-watch-input="condition"]`);
+  draftConditionInput?.focus();
+  draftConditionInput?.scrollIntoView({ block: "nearest" });
+  setWatchStatus("New watch form is ready.");
 }
 
 async function saveSettings({ restart = false } = {}) {
@@ -185,10 +296,11 @@ function progressLabelForAction(action) {
 function bindActions() {
   bindNavigation({
     onViewChange: (viewName) => {
-      if (viewName === "overview") {
-        renderDesktopState();
-        refreshRuntime().catch(() => {});
+      state.activeView = viewName;
+      if (viewName === "watch") {
+        loadWatchData().catch(() => {});
       }
+      refreshRuntime().catch(() => {});
     },
   });
   bindHomeActions({
@@ -237,6 +349,27 @@ function bindActions() {
     state,
     onAfterSend: refreshRuntime,
   });
+  bindWatchActions({
+    state,
+    onSelect: (watchId) => {
+      state.selectedWatchId = watchId;
+      renderWatchState(state);
+    },
+    onReload: loadWatchData,
+    onNew: resetWatchForm,
+    onSave: saveWatch,
+    onRunNow: runWatchNow,
+    onDelete: deleteWatch,
+  });
+
+  window.addEventListener("focus", () => {
+    refreshActiveView().catch(() => {});
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      refreshActiveView().catch(() => {});
+    }
+  });
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -244,8 +377,5 @@ document.addEventListener("DOMContentLoaded", async () => {
   bindActions();
   await loadAppMeta();
   await loadConfig();
-  await refreshRuntime();
-  window.setInterval(() => {
-    refreshRuntime().catch(() => {});
-  }, 5000);
+  await refreshActiveView();
 });

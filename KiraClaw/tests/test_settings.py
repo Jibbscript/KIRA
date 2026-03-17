@@ -37,6 +37,7 @@ def _write_legacy_state(home: Path, workspace: Path) -> None:
                 'TABLEAU_SITE_NAME="craft"',
                 'TABLEAU_PAT_NAME="legacy-pat-name"',
                 'TABLEAU_PAT_VALUE="legacy-pat-value"',
+                'REMOTE_MCP_SERVERS="[{\\"name\\":\\"docs\\",\\"url\\":\\"https://example.com/mcp\\",\\"instruction\\":\\"Use for docs\\"}]"',
                 'CHROME_ENABLED="true"',
                 f'FILESYSTEM_BASE_DIR="{workspace}"',
                 'MODEL_FOR_COMPLEX="opus"',
@@ -70,7 +71,7 @@ def test_auto_mode_prefers_legacy_kira_home(tmp_path, monkeypatch) -> None:
     assert settings.provider == "vertex_ai"
     assert settings.model == "claude-opus-4-6"
     assert settings.agent_name == "KIRA"
-    assert settings.skills_enabled is False
+    assert settings.skills_enabled is True
     assert settings.mcp_enabled is True
     assert settings.mcp_time_enabled is True
     assert settings.mcp_files_enabled is True
@@ -95,6 +96,7 @@ def test_auto_mode_prefers_legacy_kira_home(tmp_path, monkeypatch) -> None:
     assert settings.tableau_site_name == "craft"
     assert settings.tableau_pat_name == "legacy-pat-name"
     assert settings.tableau_pat_value == "legacy-pat-value"
+    assert settings.remote_mcp_servers == '[{"name":"docs","url":"https://example.com/mcp","instruction":"Use for docs"}]'
     assert settings.browser_enabled is True
     assert settings.browser_profile_dir == workspace / "chrome_profile"
     assert settings.browser_output_dir == workspace / "files"
@@ -104,6 +106,9 @@ def test_auto_mode_prefers_legacy_kira_home(tmp_path, monkeypatch) -> None:
     assert settings.active_config_file == home / ".kira" / "config.env"
     assert settings.credential_file == home / ".kira" / "credential.json"
     assert settings.schedule_file == workspace / "schedule_data" / "schedules.json"
+    assert settings.watch_dir == workspace / "watch_data"
+    assert settings.watch_file == workspace / "watch_data" / "watches.json"
+    assert settings.watch_state_file == workspace / "watch_data" / "state.json"
     assert settings.memory_dir == workspace / "memories"
     assert settings.memory_index_file == workspace / "memories" / "index.json"
     assert os.environ["OPENAI_API_KEY"] == "legacy-openai-key"
@@ -133,7 +138,7 @@ def test_explicit_modern_home_keeps_openai_provider(tmp_path, monkeypatch) -> No
     assert settings.model is None
     assert settings.agent_name == "KIRA"
     assert settings.slack_allowed_names == ""
-    assert settings.skills_enabled is False
+    assert settings.skills_enabled is True
     assert settings.mcp_enabled is True
     assert settings.mcp_time_enabled is True
     assert settings.mcp_files_enabled is True
@@ -146,5 +151,8 @@ def test_explicit_modern_home_keeps_openai_provider(tmp_path, monkeypatch) -> No
     assert settings.browser_output_dir == home / ".kiraclaw" / "workspaces" / "default" / "files"
     assert settings.legacy_config_loaded is False
     assert settings.schedule_file == home / ".kiraclaw" / "workspaces" / "default" / "schedule_data" / "schedules.json"
+    assert settings.watch_dir == home / ".kiraclaw" / "workspaces" / "default" / "watch_data"
+    assert settings.watch_file == home / ".kiraclaw" / "workspaces" / "default" / "watch_data" / "watches.json"
+    assert settings.watch_state_file == home / ".kiraclaw" / "workspaces" / "default" / "watch_data" / "state.json"
     assert settings.memory_dir == home / ".kiraclaw" / "workspaces" / "default" / "memories"
     assert settings.memory_index_file == home / ".kiraclaw" / "workspaces" / "default" / "memories" / "index.json"

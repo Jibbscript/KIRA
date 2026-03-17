@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from functools import lru_cache
 from pathlib import Path
@@ -78,7 +79,7 @@ class KiraClawSettings(BaseSettings):
     provider: str = "claude"
     model: str | None = None
     agent_name: str = "KIRA"
-    skills_enabled: bool = False
+    skills_enabled: bool = True
     mcp_enabled: bool = True
     mcp_time_enabled: bool = True
     mcp_files_enabled: bool = True
@@ -104,6 +105,7 @@ class KiraClawSettings(BaseSettings):
     tableau_pat_name: str = ""
     tableau_pat_value: str = ""
     browser_enabled: bool = False
+    remote_mcp_servers: str = ""
     browser_profile_dir: Path | None = None
     browser_output_dir: Path | None = None
     max_turns: int = 64
@@ -125,10 +127,9 @@ class KiraClawSettings(BaseSettings):
     session_scope: str = "session-lane"
     session_record_limit: int = 100
     session_idle_seconds: float = 900
-    proactive_enabled: bool = True
-    proactive_interval_seconds: int = 300
-    proactive_history_limit: int = 200
     memory_enabled: bool = True
+    watch_enabled: bool = True
+    watch_history_limit: int = 200
 
     home_mode: str = "auto"
     compatibility_mode: bool = False
@@ -141,12 +142,11 @@ class KiraClawSettings(BaseSettings):
     active_config_file: Path | None = None
     credential_file: Path | None = None
     legacy_config_loaded: bool = False
-    checker_inbox_dir: Path | None = None
-    checker_processed_dir: Path | None = None
-    checker_failed_dir: Path | None = None
-    proactive_state_file: Path | None = None
     schedule_dir: Path | None = None
     schedule_file: Path | None = None
+    watch_dir: Path | None = None
+    watch_file: Path | None = None
+    watch_state_file: Path | None = None
     memory_dir: Path | None = None
     memory_index_file: Path | None = None
 
@@ -187,19 +187,19 @@ class KiraClawSettings(BaseSettings):
 
         if "workspace_dir" not in explicit_fields and not compatibility_mode:
             object.__setattr__(self, "workspace_dir", self.data_dir / "workspaces" / "default")
-        if "checker_inbox_dir" not in explicit_fields:
-            object.__setattr__(self, "checker_inbox_dir", self.data_dir / "checkers" / "inbox")
-        if "checker_processed_dir" not in explicit_fields:
-            object.__setattr__(self, "checker_processed_dir", self.data_dir / "checkers" / "processed")
-        if "checker_failed_dir" not in explicit_fields:
-            object.__setattr__(self, "checker_failed_dir", self.data_dir / "checkers" / "failed")
-        if "proactive_state_file" not in explicit_fields:
-            object.__setattr__(self, "proactive_state_file", self.data_dir / "proactive" / "state.json")
         if "schedule_dir" not in explicit_fields:
             object.__setattr__(self, "schedule_dir", self.workspace_dir / "schedule_data")
         if "schedule_file" not in explicit_fields:
             schedule_dir = self.schedule_dir or (self.workspace_dir / "schedule_data")
             object.__setattr__(self, "schedule_file", schedule_dir / "schedules.json")
+        if "watch_dir" not in explicit_fields:
+            object.__setattr__(self, "watch_dir", self.workspace_dir / "watch_data")
+        if "watch_file" not in explicit_fields:
+            watch_dir = self.watch_dir or (self.workspace_dir / "watch_data")
+            object.__setattr__(self, "watch_file", watch_dir / "watches.json")
+        if "watch_state_file" not in explicit_fields:
+            watch_dir = self.watch_dir or (self.workspace_dir / "watch_data")
+            object.__setattr__(self, "watch_state_file", watch_dir / "state.json")
         if "memory_dir" not in explicit_fields:
             object.__setattr__(self, "memory_dir", self.workspace_dir / "memories")
         if "memory_index_file" not in explicit_fields:
@@ -319,12 +319,19 @@ class KiraClawSettings(BaseSettings):
             "tableau_site_name": "TABLEAU_SITE_NAME",
             "tableau_pat_name": "TABLEAU_PAT_NAME",
             "tableau_pat_value": "TABLEAU_PAT_VALUE",
+            "remote_mcp_servers": "REMOTE_MCP_SERVERS",
             "browser_profile_dir": "CHROME_PROFILE_DIR",
         }
         for field_name, legacy_key in legacy_field_map.items():
             current_value = getattr(self, field_name)
             if field_name not in explicit_fields and not current_value:
                 object.__setattr__(self, field_name, legacy_values.get(legacy_key, ""))
+
+        if "remote_mcp_servers" not in explicit_fields and self.remote_mcp_servers:
+            try:
+                json.loads(self.remote_mcp_servers)
+            except json.JSONDecodeError:
+                object.__setattr__(self, "remote_mcp_servers", "")
 
         if "workspace_dir" not in explicit_fields:
             filesystem_base_dir = legacy_values.get("FILESYSTEM_BASE_DIR", "").strip()
@@ -340,14 +347,11 @@ class KiraClawSettings(BaseSettings):
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.workspace_dir.mkdir(parents=True, exist_ok=True)
         (self.data_dir / "skills").mkdir(parents=True, exist_ok=True)
-        if self.checker_inbox_dir:
-            self.checker_inbox_dir.mkdir(parents=True, exist_ok=True)
-        if self.checker_processed_dir:
-            self.checker_processed_dir.mkdir(parents=True, exist_ok=True)
-        if self.checker_failed_dir:
-            self.checker_failed_dir.mkdir(parents=True, exist_ok=True)
-        if self.proactive_state_file:
-            self.proactive_state_file.parent.mkdir(parents=True, exist_ok=True)
+        (self.workspace_dir / ".krim" / "skills").mkdir(parents=True, exist_ok=True)
+        if self.watch_dir:
+            self.watch_dir.mkdir(parents=True, exist_ok=True)
+        if self.watch_state_file:
+            self.watch_state_file.parent.mkdir(parents=True, exist_ok=True)
         if self.memory_dir:
             self.memory_dir.mkdir(parents=True, exist_ok=True)
         if self.browser_profile_dir:

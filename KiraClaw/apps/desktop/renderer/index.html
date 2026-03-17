@@ -18,6 +18,7 @@
           <button class="nav-item" data-view="chat">Talk</button>
           <button class="nav-item" data-view="channel">Channel</button>
           <button class="nav-item" data-view="mcp">MCP</button>
+          <button class="nav-item" data-view="watch">Watch</button>
           <button class="nav-item" data-view="settings">Settings</button>
         </nav>
 
@@ -88,6 +89,33 @@
               </div>
             </footer>
           </section>
+        </section>
+
+        <section id="view-watch" class="view">
+          <header class="view-head">
+            <div>
+              <h2>Watch</h2>
+              <p class="inline-copy">Run the same KIRA Engine on a schedule with a condition and an action.</p>
+            </div>
+          </header>
+
+          <section class="settings-section">
+            <div class="card-head">
+              <h3>Watches</h3>
+              <div class="status-chip online">Scheduled</div>
+            </div>
+            <div id="watch-list" class="watch-list"></div>
+            <div class="watch-add-row">
+              <button id="add-watch-inline" class="ghost">+ Add Watch</button>
+            </div>
+          </section>
+
+          <footer class="view-foot">
+            <div id="watch-status" class="status-text">Watch runtime is ready.</div>
+            <div class="button-row">
+              <button id="reload-watches" class="ghost">Reload</button>
+            </div>
+          </footer>
         </section>
 
         <section id="view-channel" class="view">
@@ -317,6 +345,15 @@
                   <span>PAT Value</span>
                   <input id="TABLEAU_PAT_VALUE" type="password" data-secret="true" />
                 </label>
+              </div>
+            </section>
+
+            <section class="settings-section">
+              <h3>Custom Remote MCP</h3>
+              <p class="section-copy">Add remote MCP servers with a name and URL. They will load through <code>mcp-remote</code>.</p>
+              <div id="remote-mcp-list" class="remote-mcp-list"></div>
+              <div class="button-row remote-mcp-add-row">
+                <button id="add-remote-mcp" class="ghost" type="button">+ Add Server</button>
               </div>
             </section>
           </div>

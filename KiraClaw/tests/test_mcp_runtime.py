@@ -125,12 +125,13 @@ def test_mcp_runtime_builds_external_npm_configs(tmp_path) -> None:
         tableau_site_name="craft",
         tableau_pat_name="pat-name",
         tableau_pat_value="pat-value",
+        remote_mcp_servers='[{"name":"docs","url":"https://example.com/mcp","instruction":"Use for docs"}]',
         browser_enabled=True,
     )
 
     configs = build_mcp_server_configs(settings)
 
-    assert [config.name for config in configs] == ["perplexity", "gitlab", "ms365", "atlassian", "tableau", "playwright"]
+    assert [config.name for config in configs] == ["perplexity", "gitlab", "ms365", "atlassian", "tableau", "playwright", "docs"]
     assert configs[0].env == {"PERPLEXITY_API_KEY": "perplexity-key"}
     assert configs[0].wire_format == "line"
     assert configs[1].env["GITLAB_API_URL"] == "https://gitlab.com/api/v4"
@@ -151,6 +152,8 @@ def test_mcp_runtime_builds_external_npm_configs(tmp_path) -> None:
     assert configs[5].command[:5] == ["npx", "-y", "@playwright/mcp@latest", "--browser", "chrome"]
     assert "--user-data-dir" in configs[5].command
     assert "--output-dir" in configs[5].command
+    assert configs[6].command == ["npx", "-y", "mcp-remote", "https://example.com/mcp"]
+    assert configs[6].wire_format == "line"
 
 
 def test_mcp_runtime_includes_external_servers_for_startup(tmp_path) -> None:
@@ -181,12 +184,13 @@ def test_mcp_runtime_includes_external_servers_for_startup(tmp_path) -> None:
         tableau_site_name="craft",
         tableau_pat_name="pat-name",
         tableau_pat_value="pat-value",
+        remote_mcp_servers='[{"name":"docs","url":"https://example.com/mcp"}]',
         browser_enabled=True,
     )
 
     configs = build_mcp_server_configs(settings)
 
-    assert [config.name for config in configs] == ["perplexity", "gitlab", "ms365", "atlassian", "tableau", "playwright"]
+    assert [config.name for config in configs] == ["perplexity", "gitlab", "ms365", "atlassian", "tableau", "playwright", "docs"]
 
 
 def test_mcp_runtime_start_loads_all_configs(tmp_path, monkeypatch) -> None:
@@ -225,6 +229,7 @@ def test_mcp_runtime_start_loads_all_configs(tmp_path, monkeypatch) -> None:
         ms365_tenant_id="tenant-id",
         atlassian_enabled=True,
         atlassian_confluence_site_url="https://acme.atlassian.net",
+        remote_mcp_servers='[{"name":"docs","url":"https://example.com/mcp"}]',
         browser_enabled=True,
     )
 
@@ -234,10 +239,10 @@ def test_mcp_runtime_start_loads_all_configs(tmp_path, monkeypatch) -> None:
 
     asyncio.run(runtime.start())
 
-    assert runtime.loaded_server_names == ["perplexity", "gitlab", "ms365", "atlassian", "playwright"]
+    assert runtime.loaded_server_names == ["perplexity", "gitlab", "ms365", "atlassian", "playwright", "docs"]
     assert runtime.deferred_server_names == []
     assert runtime.failed_server_names == []
-    assert runtime.loaded_server_names == ["perplexity", "gitlab", "ms365", "atlassian", "playwright"]
-    assert runtime.tool_names == ["perplexity_tool", "gitlab_tool", "ms365_tool", "atlassian_tool", "playwright_tool"]
+    assert runtime.loaded_server_names == ["perplexity", "gitlab", "ms365", "atlassian", "playwright", "docs"]
+    assert runtime.tool_names == ["perplexity_tool", "gitlab_tool", "ms365_tool", "atlassian_tool", "playwright_tool", "docs_tool"]
 
     asyncio.run(runtime.stop())

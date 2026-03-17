@@ -1,8 +1,105 @@
 import { BOOLEAN_FIELDS, EXTERNAL_MCP_CONFIG_FIELDS, EXTERNAL_MCP_SERVER_NAMES, PROVIDER_DEFAULT_MODELS, SETTINGS_FIELDS, SELECT_DEFAULTS } from "./constants.mjs";
-import { byId, setText } from "./dom.mjs";
+import { byId, escapeHtml, setText } from "./dom.mjs";
 
 function normalizeBoolean(value) {
   return String(value ?? "").trim().toLowerCase() === "true";
+}
+
+function parseRemoteMcpServers(raw) {
+  if (!String(raw ?? "").trim()) {
+    return [];
+  }
+  try {
+    const payload = JSON.parse(raw);
+    if (!Array.isArray(payload)) {
+      return [];
+    }
+    return payload
+      .filter((item) => item && typeof item === "object")
+      .map((item) => ({
+        name: String(item.name || "").trim().toLowerCase(),
+        url: String(item.url || "").trim(),
+      }))
+      .filter((item) => item.name || item.url);
+  } catch {
+    return [];
+  }
+}
+
+function renderRemoteMcpServers(servers) {
+  const list = byId("remote-mcp-list");
+  if (!list) {
+    return;
+  }
+
+  if (!servers.length) {
+    list.innerHTML = `
+      <article class="remote-mcp-card remote-mcp-card-empty">
+        <p class="section-copy">No custom remote MCP servers yet.</p>
+      </article>
+    `;
+    return;
+  }
+
+  list.innerHTML = servers.map((server, index) => `
+    <article class="remote-mcp-card" data-remote-mcp-index="${index}">
+      <div class="form-grid remote-mcp-grid">
+        <label class="field">
+          <span>Name</span>
+          <input data-remote-mcp-input="name" value="${escapeHtml(server.name)}" placeholder="myserver" />
+        </label>
+        <label class="field">
+          <span>URL</span>
+          <input data-remote-mcp-input="url" value="${escapeHtml(server.url)}" placeholder="https://example.com/mcp" />
+        </label>
+      </div>
+      <div class="button-row remote-mcp-actions">
+        <button type="button" class="danger-button" data-remote-mcp-delete="${index}">Delete</button>
+      </div>
+    </article>
+  `).join("");
+}
+
+function collectRemoteMcpServers() {
+  const cards = Array.from(document.querySelectorAll("[data-remote-mcp-index]"));
+  return cards.map((card) => {
+    const get = (name) => card.querySelector(`[data-remote-mcp-input="${name}"]`);
+    return {
+      name: String(get("name")?.value || "").trim().toLowerCase(),
+      url: String(get("url")?.value || "").trim(),
+    };
+  });
+}
+
+function validateRemoteMcpServers(servers) {
+  const seen = new Set();
+  for (const server of servers) {
+    const touched = server.name || server.url;
+    if (!touched) {
+      continue;
+    }
+    if (!server.name) {
+      throw new Error("Custom MCP name is required.");
+    }
+    if (!/^[a-z0-9-]+$/.test(server.name)) {
+      throw new Error("Custom MCP name can use only lowercase letters, numbers, and hyphens.");
+    }
+    if (!server.url) {
+      throw new Error(`Custom MCP URL is required for ${server.name}.`);
+    }
+    if (seen.has(server.name)) {
+      throw new Error(`Custom MCP name is duplicated: ${server.name}.`);
+    }
+    seen.add(server.name);
+  }
+}
+
+function serializeRemoteMcpServers(servers) {
+  const rows = servers.filter((server) => server.name && server.url).map((server) => ({
+    name: server.name,
+    url: server.url,
+  }));
+  return rows.length ? JSON.stringify(rows) : "";
 }
 
 function runtimeValueForField(state, field) {
@@ -97,6 +194,7 @@ export function applySettingsToForm(state) {
 
   state.settingsDirty = false;
   syncProviderFields();
+  renderRemoteMcpServers(parseRemoteMcpServers(state.config.REMOTE_MCP_SERVERS));
   syncMcpView(state);
   syncExternalMcpFields();
 }
@@ -122,6 +220,10 @@ export function collectSettingsUpdates(state) {
     updates[field] = raw;
   }
 
+  const remoteServers = collectRemoteMcpServers();
+  validateRemoteMcpServers(remoteServers);
+  updates.REMOTE_MCP_SERVERS = serializeRemoteMcpServers(remoteServers);
+
   return updates;
 }
 
@@ -133,28 +235,31 @@ export function setSettingsStatus(message) {
 
 function syncMcpView(state) {
   const runtime = state.runtime;
+  const customConfiguredNames = parseRemoteMcpServers(state.config.REMOTE_MCP_SERVERS).map((server) => server.name);
   const configuredExternal = EXTERNAL_MCP_SERVER_NAMES.filter((name) => {
     const fieldName = EXTERNAL_MCP_CONFIG_FIELDS[name];
     return normalizeBoolean(state.config[fieldName]);
   });
+  const configuredNames = [...configuredExternal, ...customConfiguredNames];
 
   if (!runtime) {
-    if (configuredExternal.length > 0) {
-      setText(byId("mcp-status"), `Enabled in config: ${configuredExternal.join(", ")}`);
+    if (configuredNames.length > 0) {
+      setText(byId("mcp-status"), `Enabled in config: ${configuredNames.join(", ")}`);
       return;
     }
     setText(byId("mcp-status"), "External MCP settings are read from ~/.kira/config.env.");
     return;
   }
 
-  const externalLoaded = (runtime.mcp_loaded_servers || []).filter((name) => EXTERNAL_MCP_SERVER_NAMES.includes(name));
-  const externalFailed = (runtime.mcp_failed_servers || []).filter((name) => EXTERNAL_MCP_SERVER_NAMES.includes(name));
+  const configuredSet = new Set(configuredNames);
+  const externalLoaded = (runtime.mcp_loaded_servers || []).filter((name) => configuredSet.has(name) || EXTERNAL_MCP_SERVER_NAMES.includes(name));
+  const externalFailed = (runtime.mcp_failed_servers || []).filter((name) => configuredSet.has(name) || EXTERNAL_MCP_SERVER_NAMES.includes(name));
   if (externalLoaded.length > 0) {
     const parts = [`Loaded now: ${externalLoaded.join(", ")}`];
     if (externalFailed.length > 0) {
       parts.push(`Failed: ${externalFailed.join(", ")}`);
-    } else if (configuredExternal.length > externalLoaded.length) {
-      const pending = configuredExternal.filter((name) => !externalLoaded.includes(name));
+    } else if (configuredNames.length > externalLoaded.length) {
+      const pending = configuredNames.filter((name) => !externalLoaded.includes(name));
       if (pending.length > 0) {
         parts.push(`Enabled in config: ${pending.join(", ")}`);
       }
@@ -173,8 +278,8 @@ function syncMcpView(state) {
     return;
   }
 
-  if (configuredExternal.length > 0) {
-    setText(byId("mcp-status"), `Enabled in config: ${configuredExternal.join(", ")}`);
+  if (configuredNames.length > 0) {
+    setText(byId("mcp-status"), `Enabled in config: ${configuredNames.join(", ")}`);
     return;
   }
 
@@ -221,4 +326,30 @@ export function bindSettingsActions({ state, onReload, onSave, onSaveAndRestart 
     const eventName = BOOLEAN_FIELDS.includes(field) || input.tagName === "SELECT" ? "change" : "input";
     input.addEventListener(eventName, () => markSettingsDirty(state));
   }
+
+  byId("add-remote-mcp")?.addEventListener("click", () => {
+    const rows = collectRemoteMcpServers();
+    rows.push({ name: "", url: "" });
+    renderRemoteMcpServers(rows);
+    markSettingsDirty(state);
+  });
+
+  byId("remote-mcp-list")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-remote-mcp-delete]");
+    if (!button) {
+      return;
+    }
+    const index = Number(button.dataset.remoteMcpDelete);
+    if (!Number.isFinite(index)) {
+      return;
+    }
+    const rows = collectRemoteMcpServers();
+    rows.splice(index, 1);
+    renderRemoteMcpServers(rows);
+    markSettingsDirty(state);
+  });
+
+  byId("remote-mcp-list")?.addEventListener("input", () => {
+    markSettingsDirty(state);
+  });
 }

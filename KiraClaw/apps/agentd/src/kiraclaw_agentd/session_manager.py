@@ -23,6 +23,12 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _is_watch_metadata(metadata: dict[str, Any] | None) -> bool:
+    if not metadata:
+        return False
+    return str(metadata.get("source", "")).strip().lower() == "watch"
+
+
 @dataclass
 class RunRequest:
     prompt: str
@@ -232,7 +238,7 @@ class SessionManager:
         session_id: str,
         metadata: dict[str, Any] | None,
     ) -> str | None:
-        if self.memory_context_provider is None:
+        if self.memory_context_provider is None or _is_watch_metadata(metadata):
             return None
         try:
             return self.memory_context_provider(prompt, session_id, metadata or {})
@@ -241,7 +247,12 @@ class SessionManager:
             return None
 
     async def _notify_record_complete(self, record: RunRecord) -> None:
-        if self.on_record_complete is None or record.state != "completed" or record.result is None:
+        if (
+            self.on_record_complete is None
+            or record.state != "completed"
+            or record.result is None
+            or _is_watch_metadata(record.metadata)
+        ):
             return
         request = MemoryWriteRequest(
             session_id=record.session_id,

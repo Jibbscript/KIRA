@@ -162,3 +162,38 @@ def test_session_manager_uses_memory_context_provider_and_completion_hook(tmp_pa
         assert completed_requests[0].prompt == "need project context"
 
     asyncio.run(scenario())
+
+
+def test_session_manager_skips_memory_for_watch_runs(tmp_path) -> None:
+    async def scenario() -> None:
+        settings = KiraClawSettings(
+            data_dir=tmp_path / "data",
+            workspace_dir=tmp_path / "workspace",
+            home_mode="modern",
+            slack_enabled=False,
+        )
+        engine = CapturingEngine(settings)
+        completed_requests = []
+
+        def memory_context_provider(prompt: str, session_id: str, metadata: dict) -> str | None:
+            raise AssertionError("watch runs should not request long-term memory")
+
+        async def on_record_complete(request) -> None:
+            completed_requests.append(request)
+
+        manager = SessionManager(
+            engine,
+            memory_context_provider=memory_context_provider,
+            on_record_complete=on_record_complete,
+        )
+
+        await manager.run(
+            "watch:test",
+            "check every 5 minutes",
+            metadata={"source": "watch"},
+        )
+
+        assert engine.calls[0]["memory_context"] is None
+        assert completed_requests == []
+
+    asyncio.run(scenario())
