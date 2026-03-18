@@ -6,8 +6,8 @@
 
 ## 1. 다운로드
 
-- macOS (Apple Silicon): [KiraClaw-0.1.57-arm64.dmg](https://kira.krafton-ai.com/kiraclaw-download/KiraClaw-0.1.57-arm64.dmg)
-- Windows: [KiraClaw-0.1.57-x64.exe](https://kira.krafton-ai.com/kiraclaw-download/KiraClaw-0.1.57-x64.exe)
+- macOS (Apple Silicon): [KiraClaw for macOS 다운로드](https://kira.krafton-ai.com/download/KiraClaw-0.1.58-arm64.dmg)
+- Windows: [KiraClaw for Windows 다운로드](https://kira.krafton-ai.com/download/KiraClaw-0.1.58-x64.exe)
 
 ## 2. 설치
 

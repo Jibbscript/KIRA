@@ -32,7 +32,7 @@
     "provider": "s3",
     "bucket": "kira-releases",
     "region": "ap-northeast-2",
-    "path": "/kiraclaw-download",
+    "path": "/download",
     "acl": "public-read"
   }
 }
