@@ -45,11 +45,24 @@ jobs:
           which aws || brew install awscli
           aws --version
 
+      - name: Setup Python and uv
+        run: |
+          python3 --version
+          python3 -m pip install --user uv
+          export PATH="$HOME/.local/bin:$PATH"
+          uv --version
+
       - name: Install dependencies
         run: |
           export NVM_DIR="$HOME/.nvm"
           [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
           cd ${{ env.CLAW_WORKING_DIR }} && npm ci
+
+      - name: Sync KiraClaw Python environment
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          cd ${{ env.CLAW_WORKING_DIR }}
+          uv sync --extra dev
 
       - name: Extract version from tag and update KiraClaw package versions
         run: |

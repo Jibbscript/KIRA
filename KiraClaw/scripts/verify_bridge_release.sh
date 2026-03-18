@@ -50,6 +50,14 @@ node --check "$DESKTOP_DIR/renderer/app/skills.mjs"
 node --check "$DESKTOP_DIR/renderer/app/state.mjs"
 
 echo "[bridge] running KiraClaw test suite"
+if [[ ! -x "$ROOT_DIR/.venv/bin/python" ]]; then
+  if ! command -v uv >/dev/null 2>&1; then
+    echo "[bridge] missing KiraClaw virtualenv and uv is not installed" >&2
+    exit 1
+  fi
+  echo "[bridge] bootstrapping python environment with uv"
+  (cd "$ROOT_DIR" && uv sync --extra dev)
+fi
 "$ROOT_DIR/.venv/bin/python" -m pytest -q
 
 echo "[bridge] building smoke bridge app"
