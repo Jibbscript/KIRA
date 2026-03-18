@@ -44,7 +44,7 @@ KiraClaw는 다음을 위한 로컬 filesystem base directory를 사용합니다
 - `Channels`
 - `Skills`
 - `Schedules`
-- `Runs`
+- `Logs`
 
 ## 5. 선택: 채널 연결
 

@@ -44,7 +44,7 @@ Inside the app, start with:
 - `Channels`
 - `Skills`
 - `Schedules`
-- `Runs`
+- `Logs`
 
 ## 5. Optional: connect channels
 

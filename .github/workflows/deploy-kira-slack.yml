@@ -71,6 +71,10 @@ jobs:
           echo "📦 Version: $VERSION"
           VERSION="$VERSION" node -e 'const fs=require("fs"); const version=process.env.VERSION; const files=process.argv.slice(1); for (const file of files) { const pkg=JSON.parse(fs.readFileSync(file,"utf8")); pkg.version=version; fs.writeFileSync(file, `${JSON.stringify(pkg, null, 2)}\n`); }' "${{ env.CLAW_WORKING_DIR }}/package.json" "${{ env.CLAW_DESKTOP_DIR }}/package.json"
 
+      - name: Clean public output
+        run: |
+          rm -rf "${{ env.CLAW_DESKTOP_DIR }}/dist-public"
+
       - name: Verify desktop release preflight
         run: |
           export NVM_DIR="$HOME/.nvm"
@@ -131,6 +135,11 @@ jobs:
           VERSION=${GITHUB_REF_NAME#v}
           echo "📦 Version: $VERSION"
           VERSION="$VERSION" node -e 'const fs=require("fs"); const version=process.env.VERSION; const files=process.argv.slice(1); for (const file of files) { const pkg=JSON.parse(fs.readFileSync(file,"utf8")); pkg.version=version; fs.writeFileSync(file, `${JSON.stringify(pkg, null, 2)}\n`); }' "${{ env.CLAW_WORKING_DIR }}/package.json" "${{ env.CLAW_DESKTOP_DIR }}/package.json"
+
+      - name: Clean public output
+        shell: bash
+        run: |
+          rm -rf "${{ env.CLAW_DESKTOP_DIR }}/dist-public"
 
       - name: Build and Deploy Windows Public KiraClaw App
         env:

@@ -96,17 +96,17 @@ export function renderRunLogsState(state) {
   if (!Array.isArray(state.runLogs) || state.runLogs.length === 0) {
     list.innerHTML = `
       <article class="simple-item">
-        <strong>No run logs yet</strong>
-        <p>No recent runs have been recorded yet.</p>
+        <strong>No logs yet</strong>
+        <p>No recent logs have been recorded yet.</p>
       </article>
     `;
-    setText(byId("run-log-status"), state.runLogFile ? `No recent runs yet · ${state.runLogFile}` : "No recent runs yet.");
+    setText(byId("run-log-status"), state.runLogFile ? `No recent logs yet · ${state.runLogFile}` : "No recent logs yet.");
     return;
   }
 
   list.innerHTML = state.runLogs.map(logCard).join("");
   const suffix = state.runLogFile ? ` · ${state.runLogFile}` : "";
-  setText(byId("run-log-status"), `${state.runLogs.length} recent run log${state.runLogs.length === 1 ? "" : "s"}${suffix}.`);
+  setText(byId("run-log-status"), `${state.runLogs.length} recent log${state.runLogs.length === 1 ? "" : "s"}${suffix}.`);
 }
 
 export function bindRunLogActions({ state, onReload, onOpenPath }) {
