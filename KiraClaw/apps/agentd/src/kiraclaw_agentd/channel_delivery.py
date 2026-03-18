@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from kiraclaw_agentd.discord_adapter import DiscordGateway
 from kiraclaw_agentd.slack_adapter import SlackGateway
 from kiraclaw_agentd.telegram_adapter import TelegramGateway
 
@@ -10,6 +11,7 @@ from kiraclaw_agentd.telegram_adapter import TelegramGateway
 class ChannelDelivery:
     slack_gateway: SlackGateway
     telegram_gateway: TelegramGateway
+    discord_gateway: DiscordGateway | None = None
 
     async def send_text(self, channel_type: str | None, channel_target: str | None, text: str) -> bool:
         target = str(channel_target or "").strip()
@@ -27,6 +29,12 @@ class ChannelDelivery:
             if not self.telegram_gateway.configured:
                 return False
             await self.telegram_gateway.send_message(target, text)
+            return True
+
+        if normalized_type == "discord":
+            if self.discord_gateway is None or not self.discord_gateway.configured:
+                return False
+            await self.discord_gateway.send_message(target, text)
             return True
 
         return False

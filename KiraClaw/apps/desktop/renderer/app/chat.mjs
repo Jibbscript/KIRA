@@ -22,7 +22,7 @@ export function clearChatThread(state) {
   `;
 }
 
-function appendChatMessage(state, role, text, { meta = "", pending = false } = {}) {
+function appendChatMessage(state, role, text, { meta = "", pending = false, prefix = "" } = {}) {
   const thread = byId("chat-thread");
   if (!thread) {
     return null;
@@ -32,9 +32,10 @@ function appendChatMessage(state, role, text, { meta = "", pending = false } = {
   message.className = `terminal-entry ${role}${pending ? " pending" : ""}`;
   const pendingSuffix = pending ? '<span class="thinking-dots" aria-hidden="true"></span>' : "";
   const metaMarkup = meta ? `<div class="terminal-meta">${escapeHtml(meta)}</div>` : "";
+  const speaker = prefix || (role === "user" ? "You" : getAgentName(state));
   message.innerHTML = `
     <div class="terminal-line">
-      <span class="terminal-prefix">${role === "user" ? "You" : escapeHtml(getAgentName(state))}</span>
+      <span class="terminal-prefix">${escapeHtml(speaker)}</span>
       <div class="terminal-text">${renderTerminalText(text)}${pendingSuffix}</div>
     </div>
     ${metaMarkup}
@@ -44,7 +45,7 @@ function appendChatMessage(state, role, text, { meta = "", pending = false } = {
   return message;
 }
 
-function replaceChatMessage(message, state, role, text, { meta = "", pending = false } = {}) {
+function replaceChatMessage(message, state, role, text, { meta = "", pending = false, prefix = "" } = {}) {
   if (!message) {
     return;
   }
@@ -52,9 +53,10 @@ function replaceChatMessage(message, state, role, text, { meta = "", pending = f
   message.className = `terminal-entry ${role}${pending ? " pending" : ""}`;
   const pendingSuffix = pending ? '<span class="thinking-dots" aria-hidden="true"></span>' : "";
   const metaMarkup = meta ? `<div class="terminal-meta">${escapeHtml(meta)}</div>` : "";
+  const speaker = prefix || (role === "user" ? "You" : getAgentName(state));
   message.innerHTML = `
     <div class="terminal-line">
-      <span class="terminal-prefix">${role === "user" ? "You" : escapeHtml(getAgentName(state))}</span>
+      <span class="terminal-prefix">${escapeHtml(speaker)}</span>
       <div class="terminal-text">${renderTerminalText(text)}${pendingSuffix}</div>
     </div>
     ${metaMarkup}
@@ -91,6 +93,10 @@ function buildChatMeta(toolEvents, extraParts = []) {
     }
   }
   return parts.join(" • ");
+}
+
+function normalizeForComparison(text) {
+  return String(text ?? "").trim().replace(/\s+/g, " ");
 }
 
 function renderTerminalText(text) {
@@ -155,9 +161,11 @@ async function sendChat({ api, state, onAfterSend }) {
 
   appendChatMessage(state, "user", prompt);
   input.value = "";
+  const thinkingPrefix = `${getAgentName(state)} (Thinking)`;
   const pendingMessage = appendChatMessage(state, "assistant", "Thinking", {
     meta: "Preparing a response...",
     pending: true,
+    prefix: thinkingPrefix,
   });
   setChatBusy(true);
 
@@ -176,22 +184,44 @@ async function sendChat({ api, state, onAfterSend }) {
       throw new Error(result.error || "Run failed.");
     }
 
-    replaceChatMessage(
-      pendingMessage,
-      state,
-      "assistant",
-      result.internal_summary || result.final_response || "(empty internal summary)",
-      {
-        meta: buildChatMeta(result.tool_events, ["Internal summary"]),
-      },
-    );
-    if (Array.isArray(result.spoken_messages) && result.spoken_messages.length > 0) {
-      appendChatMessage(
+    const internalSummary = result.internal_summary || result.final_response || "(empty internal summary)";
+    const spokenText = Array.isArray(result.spoken_messages) && result.spoken_messages.length > 0
+      ? result.spoken_messages.join("\n\n")
+      : "";
+    const summaryMatchesSpoken = spokenText
+      ? normalizeForComparison(spokenText) === normalizeForComparison(internalSummary)
+      : false;
+
+    if (spokenText) {
+      replaceChatMessage(
+        pendingMessage,
         state,
         "assistant",
-        result.spoken_messages.join("\n\n"),
+        spokenText,
         {
-          meta: "Spoken reply",
+          meta: buildChatMeta(result.tool_events, ["Spoken reply"]),
+        },
+      );
+      if (!summaryMatchesSpoken) {
+        appendChatMessage(
+          state,
+          "assistant",
+          internalSummary,
+          {
+            meta: "Internal summary",
+            prefix: thinkingPrefix,
+          },
+        );
+      }
+    } else {
+      replaceChatMessage(
+        pendingMessage,
+        state,
+        "assistant",
+        internalSummary,
+        {
+          meta: buildChatMeta(result.tool_events, ["Internal summary"]),
+          prefix: thinkingPrefix,
         },
       );
     }

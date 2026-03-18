@@ -80,6 +80,16 @@
       ]
     },
     {
+      "from": "../../defaults",
+      "to": "kiraclaw/defaults",
+      "filter": [
+        "**/*",
+        "!**/__pycache__/**",
+        "!**/*.pyc",
+        "!**/.DS_Store"
+      ]
+    },
+    {
       "from": "kiraclaw.bridge.pyproject.toml",
       "to": "kiraclaw/pyproject.toml"
     },

@@ -208,6 +208,16 @@
                   </div>
                   <p class="section-copy">Telegram can use the same local engine through a lightweight bot adapter.</p>
                 </article>
+                <article id="channel-card-discord" class="channel-card">
+                  <div class="channel-card-head">
+                    <strong>Discord</strong>
+                    <label class="toggle-switch channel-toggle" aria-label="Discord enabled">
+                      <input id="DISCORD_ENABLED" type="checkbox" />
+                      <span class="toggle-slider"></span>
+                    </label>
+                  </div>
+                  <p class="section-copy">Discord can use the same local engine for DMs and server channels through a bot gateway.</p>
+                </article>
                 <article class="channel-card">
                   <div class="channel-card-head">
                     <strong>More channels</strong>
@@ -256,6 +266,21 @@
                 <label class="field full">
                   <span>Allowed Names</span>
                   <input id="TELEGRAM_ALLOWED_NAMES" placeholder="@jiho, 전지호" />
+                </label>
+              </fieldset>
+            </section>
+
+            <section class="settings-section">
+              <h3>Discord</h3>
+              <p class="section-copy">Discord uses a bot token and can share the same local engine for direct messages and server channels.</p>
+              <fieldset id="discord-channel-fields" class="form-grid channel-config-fields">
+                <label class="field full">
+                  <span>Discord Bot Token</span>
+                  <input id="DISCORD_BOT_TOKEN" type="password" placeholder="Bot token" data-secret="true" />
+                </label>
+                <label class="field full">
+                  <span>Allowed Names</span>
+                  <input id="DISCORD_ALLOWED_NAMES" placeholder="@jiho, Jiho Jeon, 전지호" />
                 </label>
               </fieldset>
             </section>
@@ -568,7 +593,7 @@
                 </label>
                 <label class="field">
                   <span>Model Override</span>
-                  <input id="KIRACLAW_MODEL" placeholder="claude-opus-4-6 or gpt-5.3-codex" />
+                  <input id="KIRACLAW_MODEL" placeholder="claude-opus-4-6 or gpt-5.2" />
                 </label>
                 <label class="field full provider-field" data-provider="claude">
                   <span>Anthropic API Key</span>

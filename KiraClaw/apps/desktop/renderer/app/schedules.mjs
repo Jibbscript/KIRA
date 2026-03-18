@@ -29,7 +29,11 @@ function summarizePrompt(text) {
 function scheduleMeta(schedule) {
   const parts = [];
   if (schedule.channel_target) {
-    const channelLabel = schedule.channel_type === "telegram" ? "Telegram" : "Slack";
+    const channelLabel = schedule.channel_type === "telegram"
+      ? "Telegram"
+      : schedule.channel_type === "discord"
+        ? "Discord"
+        : "Slack";
     parts.push(`${channelLabel} ${schedule.channel_target}`);
   }
   if (schedule.user) {

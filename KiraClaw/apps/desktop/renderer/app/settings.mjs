@@ -117,6 +117,8 @@ function runtimeValueForField(state, field) {
     SLACK_ALLOWED_NAMES: state.runtime.slack_allowed_names,
     TELEGRAM_ENABLED: String(Boolean(state.runtime.telegram_enabled)),
     TELEGRAM_ALLOWED_NAMES: state.runtime.telegram_allowed_names,
+    DISCORD_ENABLED: String(Boolean(state.runtime.discord_enabled)),
+    DISCORD_ALLOWED_NAMES: state.runtime.discord_allowed_names,
     CHROME_ENABLED: String(Boolean(state.runtime.browser_enabled)),
     FILESYSTEM_BASE_DIR: state.runtime.workspace_dir,
   };
@@ -157,7 +159,7 @@ export function syncProviderFields() {
     if (!currentValue || (previousDefault && currentValue === previousDefault)) {
       modelInput.value = nextDefault;
     }
-    modelInput.placeholder = nextDefault || "claude-opus-4-6 or gpt-5.3-codex";
+    modelInput.placeholder = nextDefault || "claude-opus-4-6 or gpt-5.2";
   }
 
   if (providerInput) {
@@ -181,16 +183,20 @@ function hasConfiguredValue(state, field) {
 function syncChannelCards(state) {
   const slackInput = byId("SLACK_ENABLED");
   const telegramInput = byId("TELEGRAM_ENABLED");
+  const discordInput = byId("DISCORD_ENABLED");
   const slackActive = slackInput ? slackInput.checked : normalizeBoolean(effectiveFieldValue(state, "SLACK_ENABLED"));
   const telegramActive = telegramInput ? telegramInput.checked : normalizeBoolean(effectiveFieldValue(state, "TELEGRAM_ENABLED"));
+  const discordActive = discordInput ? discordInput.checked : normalizeBoolean(effectiveFieldValue(state, "DISCORD_ENABLED"));
 
   const channelStates = [
     ["slack", slackActive],
     ["telegram", telegramActive],
+    ["discord", discordActive],
   ];
   for (const [name, active] of channelStates) {
     const card = byId(`channel-card-${name}`);
-    const toggle = byId(name === "slack" ? "SLACK_ENABLED" : "TELEGRAM_ENABLED");
+    const toggleId = name === "slack" ? "SLACK_ENABLED" : name === "telegram" ? "TELEGRAM_ENABLED" : "DISCORD_ENABLED";
+    const toggle = byId(toggleId);
     if (card) {
       card.classList.toggle("active", active);
     }
@@ -204,11 +210,15 @@ function syncChannelCards(state) {
 
   const slackFields = byId("slack-channel-fields");
   const telegramFields = byId("telegram-channel-fields");
+  const discordFields = byId("discord-channel-fields");
   if (slackFields) {
     slackFields.disabled = !slackActive;
   }
   if (telegramFields) {
     telegramFields.disabled = !telegramActive;
+  }
+  if (discordFields) {
+    discordFields.disabled = !discordActive;
   }
 }
 

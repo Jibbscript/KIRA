@@ -88,6 +88,35 @@ def test_scheduler_tools_accept_telegram_channel_type(tmp_path, monkeypatch) -> 
     asyncio.run(scenario())
 
 
+def test_scheduler_tools_accept_discord_channel_type(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("KIRACLAW_SCHEDULE_FILE", str(tmp_path / "schedules.json"))
+    monkeypatch.setattr("kiraclaw_agentd.scheduler_mcp_tools._notify_scheduler_reload", lambda: asyncio.sleep(0, result=(True, None)))
+
+    async def scenario() -> None:
+        created = _payload(
+            await add_schedule(
+                {
+                    "name": "Discord report",
+                    "schedule_type": "date",
+                    "schedule_value": (datetime.now(timezone.utc) + timedelta(minutes=5)).replace(microsecond=0).isoformat(),
+                    "user_id": "U123",
+                    "text": "Send the Discord report",
+                    "channel_type": "discord",
+                    "channel_target": "987654321",
+                }
+            )
+        )
+        assert created["success"] is True
+
+        listed = _payload(list_schedules({"channel_target": "987654321"}))
+        assert listed["success"] is True
+        assert listed["schedules"][0]["channel_type"] == "discord"
+        assert listed["schedules"][0]["channel_target"] == "987654321"
+        assert created["reload_notified"] is True
+
+    asyncio.run(scenario())
+
+
 def test_scheduler_tools_return_warning_when_reload_notification_fails(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("KIRACLAW_SCHEDULE_FILE", str(tmp_path / "schedules.json"))
 

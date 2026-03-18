@@ -78,9 +78,9 @@ async def add_schedule(args: dict[str, Any]) -> dict[str, Any]:
             {"success": False, "error": True, "message": "channel_target is required."},
             is_error=True,
         )
-    if channel_type not in {"", "slack", "telegram"}:
+    if channel_type not in {"", "slack", "telegram", "discord"}:
         return mcp_text_result(
-            {"success": False, "error": True, "message": "channel_type must be 'slack' or 'telegram'."},
+            {"success": False, "error": True, "message": "channel_type must be 'slack', 'telegram', or 'discord'."},
             is_error=True,
         )
 
@@ -259,7 +259,7 @@ def build_scheduler_tool_specs() -> list[McpToolSpec]:
                     },
                     "channel_type": {
                         "type": "string",
-                        "enum": ["slack", "telegram"],
+                        "enum": ["slack", "telegram", "discord"],
                         "description": "Delivery channel type. Defaults to 'slack' if omitted.",
                     },
                     "channel_target": {

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from importlib.metadata import PackageNotFoundError, version as package_version
 import os
 import signal
 
@@ -8,6 +9,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 
 from kiraclaw_agentd.channel_delivery import ChannelDelivery
+from kiraclaw_agentd.discord_adapter import DiscordGateway
 from kiraclaw_agentd.engine import KiraClawEngine, RunResult, list_available_skills
 from kiraclaw_agentd.memory_runtime import MemoryRuntime
 from kiraclaw_agentd.run_log_store import RunLogStore
@@ -38,6 +40,13 @@ class RunResponse(BaseModel):
     error: str | None = None
 
 
+def _agentd_version() -> str:
+    try:
+        return package_version("kiraclaw")
+    except PackageNotFoundError:
+        return "0.1.0"
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
     engine = KiraClawEngine(settings)
@@ -51,14 +60,20 @@ def create_app() -> FastAPI:
     )
     slack_gateway = SlackGateway(session_manager, settings)
     telegram_gateway = TelegramGateway(session_manager, settings)
-    channel_delivery = ChannelDelivery(slack_gateway=slack_gateway, telegram_gateway=telegram_gateway)
+    discord_gateway = DiscordGateway(session_manager, settings)
+    channel_delivery = ChannelDelivery(
+        slack_gateway=slack_gateway,
+        telegram_gateway=telegram_gateway,
+        discord_gateway=discord_gateway,
+    )
     scheduler_runtime = SchedulerRuntime(settings, session_manager, channel_delivery)
 
-    app = FastAPI(title="KiraClaw Agentd", version="0.1.0")
+    app = FastAPI(title="KiraClaw Agentd", version=_agentd_version())
     app.state.session_manager = session_manager
     app.state.memory_runtime = memory_runtime
     app.state.slack_gateway = slack_gateway
     app.state.telegram_gateway = telegram_gateway
+    app.state.discord_gateway = discord_gateway
     app.state.channel_delivery = channel_delivery
     app.state.scheduler_runtime = scheduler_runtime
     app.state.run_log_store = run_log_store
@@ -69,11 +84,13 @@ def create_app() -> FastAPI:
         await memory_runtime.start()
         await slack_gateway.start()
         await telegram_gateway.start()
+        await discord_gateway.start()
         await scheduler_runtime.start()
 
     @app.on_event("shutdown")
     async def shutdown() -> None:
         await scheduler_runtime.stop()
+        await discord_gateway.stop()
         await telegram_gateway.stop()
         await slack_gateway.stop()
         await memory_runtime.stop()
@@ -126,6 +143,12 @@ def create_app() -> FastAPI:
             "telegram_last_error": telegram_gateway.last_error,
             "telegram_identity": telegram_gateway.identity,
             "telegram_allowed_names": settings.telegram_allowed_names,
+            "discord_enabled": settings.discord_enabled,
+            "discord_configured": discord_gateway.configured,
+            "discord_state": discord_gateway.state,
+            "discord_last_error": discord_gateway.last_error,
+            "discord_identity": discord_gateway.identity,
+            "discord_allowed_names": settings.discord_allowed_names,
             "mcp_state": engine.mcp_runtime.state,
             "mcp_last_error": engine.mcp_runtime.last_error,
             "mcp_loaded_servers": engine.mcp_runtime.loaded_server_names,

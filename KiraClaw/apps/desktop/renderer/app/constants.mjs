@@ -14,6 +14,9 @@ export const SETTINGS_FIELDS = [
   "TELEGRAM_ENABLED",
   "TELEGRAM_BOT_TOKEN",
   "TELEGRAM_ALLOWED_NAMES",
+  "DISCORD_ENABLED",
+  "DISCORD_BOT_TOKEN",
+  "DISCORD_ALLOWED_NAMES",
   "CHROME_ENABLED",
   "PERPLEXITY_ENABLED",
   "PERPLEXITY_API_KEY",
@@ -45,6 +48,7 @@ export const BOOLEAN_FIELDS = [
   "CHROME_ENABLED",
   "SLACK_ENABLED",
   "TELEGRAM_ENABLED",
+  "DISCORD_ENABLED",
 ];
 
 export const SELECT_DEFAULTS = {
@@ -57,11 +61,12 @@ export const SELECT_DEFAULTS = {
   CHROME_ENABLED: "false",
   SLACK_ENABLED: "true",
   TELEGRAM_ENABLED: "false",
+  DISCORD_ENABLED: "false",
 };
 
 export const PROVIDER_DEFAULT_MODELS = {
   claude: "claude-opus-4-6",
-  openai: "gpt-5.3-codex",
+  openai: "gpt-5.2",
 };
 
 export const DEFAULT_CHAT_SESSION_ID = "desktop:local";

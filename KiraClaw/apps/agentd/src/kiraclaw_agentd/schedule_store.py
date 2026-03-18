@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 
-_SUPPORTED_CHANNEL_TYPES = {"slack", "telegram"}
+_SUPPORTED_CHANNEL_TYPES = {"slack", "telegram", "discord"}
 
 
 def ensure_schedule_file(schedule_file: Path) -> None:

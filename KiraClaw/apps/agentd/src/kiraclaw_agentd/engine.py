@@ -12,6 +12,7 @@ from krim_sdk.tools import BashTool, SkillTool, default_tools, default_tools_wit
 
 from kiraclaw_agentd.mcp_runtime import McpRuntime
 from kiraclaw_agentd.memory_tools import build_memory_tools
+from kiraclaw_agentd.discord_tools import build_discord_tools
 from kiraclaw_agentd.settings import KiraClawSettings
 from kiraclaw_agentd.slack_tools import build_slack_tools
 from kiraclaw_agentd.speak_tools import build_speak_tools
@@ -66,7 +67,7 @@ def create_model(provider: str, model: str | None, max_tokens: int):
     if provider == "claude":
         return ClaudeModel(model or "claude-opus-4-6", max_tokens=max_tokens)
     if provider == "openai":
-        return OpenAIModel(model or "gpt-5.3-codex", max_tokens=max_tokens)
+        return OpenAIModel(model or "gpt-5.2", max_tokens=max_tokens)
     if provider == "vertex_ai":
         return VertexModel(model or "claude-opus-4-6", max_tokens=max_tokens)
     raise ValueError(f"unknown provider: {provider}")
@@ -132,6 +133,7 @@ def _configure_tools(
     tools.extend(build_memory_tools(settings, tool_context=tool_context))
     tools.extend(build_slack_tools(settings))
     tools.extend(build_telegram_tools(settings))
+    tools.extend(build_discord_tools(settings))
     return tools, skill_rows
 
 

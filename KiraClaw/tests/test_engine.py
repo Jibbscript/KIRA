@@ -30,12 +30,12 @@ def test_engine_requires_claude_credentials(tmp_path, monkeypatch) -> None:
         KiraClawEngine(settings).run("Say hi.")
 
 
-def test_openai_default_model_is_gpt_5_3_codex(monkeypatch) -> None:
+def test_openai_default_model_is_gpt_5_2(monkeypatch) -> None:
     monkeypatch.setenv("OPENAI_API_KEY", "test-openai-key")
 
     model = create_model("openai", None, max_tokens=2048)
 
-    assert model.model == "gpt-5.3-codex"
+    assert model.model == "gpt-5.2"
 
 
 def test_compose_prompt_includes_recent_history_when_present() -> None:

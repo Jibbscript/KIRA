@@ -59,6 +59,15 @@ class FakeTelegramGateway:
         self.messages.append({"chat_id": chat_id, "text": text, "reply_to_message_id": reply_to_message_id})
 
 
+class FakeDiscordGateway:
+    def __init__(self) -> None:
+        self.configured = True
+        self.messages: list[dict] = []
+
+    async def send_message(self, channel_id: int | str, text: str, reply_to_message_id=None) -> None:
+        self.messages.append({"channel_id": channel_id, "text": text, "reply_to_message_id": reply_to_message_id})
+
+
 def test_scheduler_runtime_executes_due_schedule(tmp_path) -> None:
     async def scenario() -> None:
         schedule_file = tmp_path / "workspace" / "schedule_data" / "schedules.json"
@@ -161,6 +170,63 @@ def test_scheduler_runtime_can_deliver_to_telegram(tmp_path) -> None:
         assert slack_gateway.messages == []
 
         asyncio.run(scenario())
+
+
+def test_scheduler_runtime_can_deliver_to_discord(tmp_path) -> None:
+    async def scenario() -> None:
+        schedule_file = tmp_path / "workspace" / "schedule_data" / "schedules.json"
+        write_schedules(
+            schedule_file,
+            [
+                {
+                    "id": "sched-1",
+                    "name": "Discord shot",
+                    "schedule_type": "date",
+                    "schedule_value": (datetime.now(timezone.utc) + timedelta(milliseconds=300)).isoformat(),
+                    "user": "U123",
+                    "text": "Summarize the update",
+                    "channel_type": "discord",
+                    "channel_target": "987654321",
+                    "is_enabled": True,
+                }
+            ],
+        )
+
+        settings = KiraClawSettings(
+            data_dir=tmp_path / "data",
+            workspace_dir=tmp_path / "workspace",
+            home_mode="modern",
+            slack_enabled=False,
+            mcp_enabled=True,
+            mcp_scheduler_enabled=True,
+            schedule_file=schedule_file,
+        )
+        session_manager = FakeSessionManager()
+        slack_gateway = FakeSlackGateway()
+        telegram_gateway = FakeTelegramGateway()
+        discord_gateway = FakeDiscordGateway()
+        runtime = SchedulerRuntime(
+            settings,
+            session_manager,
+            ChannelDelivery(
+                slack_gateway=slack_gateway,
+                telegram_gateway=telegram_gateway,
+                discord_gateway=discord_gateway,
+            ),
+        )
+
+        try:
+            await runtime.start()
+            await asyncio.sleep(1.0)
+        finally:
+            await runtime.stop()
+
+        assert runtime.last_error is None
+        assert discord_gateway.messages == [{"channel_id": "987654321", "text": "scheduled response", "reply_to_message_id": None}]
+        assert slack_gateway.messages == []
+        assert telegram_gateway.messages == []
+
+    asyncio.run(scenario())
 
 
 def test_scheduler_runtime_prefers_spoken_public_response_when_available(tmp_path) -> None:

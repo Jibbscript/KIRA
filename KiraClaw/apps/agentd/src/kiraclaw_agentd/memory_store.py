@@ -378,24 +378,42 @@ class MemoryStore:
         user_id = str(metadata.get("user", "")).strip()
         if user_name or user_id:
             user_stem = _build_entity_stem(user_id, user_name, fallback="user")
+            source = str(metadata.get("source", "")).strip().lower()
+            if source.startswith("slack"):
+                platform_tag = "slack"
+            elif source.startswith("telegram"):
+                platform_tag = "telegram"
+            elif source.startswith("discord"):
+                platform_tag = "discord"
+            else:
+                platform_tag = "desktop"
             targets.append(
                 {
                     "path": f"users/{user_stem}.md",
                     "title": f"User Memory: {user_name or user_id}",
                     "category": "users",
-                    "tags": ["user", "slack" if str(metadata.get("source", "")).startswith("slack") else "desktop"],
+                    "tags": ["user", platform_tag],
                 }
             )
 
         channel_id = str(metadata.get("channel", "")).strip()
         if channel_id:
             channel_stem = _build_entity_stem(channel_id, "", fallback="channel")
+            source = str(metadata.get("source", "")).strip().lower()
+            if source.startswith("slack"):
+                channel_platform = "slack"
+            elif source.startswith("telegram"):
+                channel_platform = "telegram"
+            elif source.startswith("discord"):
+                channel_platform = "discord"
+            else:
+                channel_platform = "channel"
             targets.append(
                 {
                     "path": f"channels/{channel_stem}.md",
                     "title": f"Channel Memory: {channel_id}",
                     "category": "channels",
-                    "tags": ["channel", "slack"],
+                    "tags": ["channel", channel_platform],
                 }
             )
 

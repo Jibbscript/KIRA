@@ -112,6 +112,9 @@ def test_auto_mode_prefers_legacy_kira_home(tmp_path, monkeypatch) -> None:
     assert settings.telegram_enabled is True
     assert settings.telegram_bot_token == "legacy-telegram-token"
     assert settings.telegram_allowed_names == "jiho, 전지호"
+    assert settings.discord_enabled is False
+    assert settings.discord_bot_token == ""
+    assert settings.discord_allowed_names == ""
     assert settings.legacy_config_loaded is True
     assert settings.active_config_file == home / ".kira" / "config.env"
     assert settings.credential_file == home / ".kira" / "credential.json"
@@ -152,6 +155,9 @@ def test_explicit_modern_home_keeps_openai_provider(tmp_path, monkeypatch) -> No
     assert settings.telegram_enabled is False
     assert settings.telegram_bot_token == ""
     assert settings.telegram_allowed_names == ""
+    assert settings.discord_enabled is False
+    assert settings.discord_bot_token == ""
+    assert settings.discord_allowed_names == ""
     assert settings.skills_enabled is True
     assert settings.mcp_enabled is True
     assert settings.mcp_time_enabled is True
@@ -177,6 +183,8 @@ def test_ensure_directories_seeds_default_skills_without_overwriting(tmp_path) -
     (seed_dir / "pptx" / "SKILL.md").write_text("# pptx\n", encoding="utf-8")
     (seed_dir / "pdf").mkdir(parents=True)
     (seed_dir / "pdf" / "SKILL.md").write_text("# pdf\n", encoding="utf-8")
+    (seed_dir / "channel-setup").mkdir(parents=True)
+    (seed_dir / "channel-setup" / "SKILL.md").write_text("# channel setup\n", encoding="utf-8")
 
     workspace_dir = tmp_path / "workspace"
     kira_settings = KiraClawSettings(
@@ -190,6 +198,7 @@ def test_ensure_directories_seeds_default_skills_without_overwriting(tmp_path) -
 
     assert (workspace_dir / "skills" / "pptx" / "SKILL.md").exists()
     assert (workspace_dir / "skills" / "pdf" / "SKILL.md").exists()
+    assert (workspace_dir / "skills" / "channel-setup" / "SKILL.md").exists()
 
     (workspace_dir / "skills" / "pptx" / "SKILL.md").write_text("# customized\n", encoding="utf-8")
     kira_settings.ensure_directories()

@@ -104,8 +104,12 @@ jobs:
           [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
           APP_BUNDLE="${{ env.CLAW_DESKTOP_DIR }}/dist-public/mac-arm64/KiraClaw.app"
           APP_ASAR="$APP_BUNDLE/Contents/Resources/app.asar"
+          APP_DEFAULT_SKILLS_DIR="$APP_BUNDLE/Contents/Resources/kiraclaw/defaults/skills"
           test -f "$APP_ASAR"
           npx --yes @electron/asar list "$APP_ASAR" | grep -q '^/lib/constants\.js$'
+          test -f "$APP_DEFAULT_SKILLS_DIR/pptx/SKILL.md"
+          test -f "$APP_DEFAULT_SKILLS_DIR/pdf/SKILL.md"
+          test -f "$APP_DEFAULT_SKILLS_DIR/channel-setup/SKILL.md"
           test -f "${{ env.CLAW_DESKTOP_DIR }}/dist-public/latest-mac.yml"
 
       - name: Upload macOS public release to S3

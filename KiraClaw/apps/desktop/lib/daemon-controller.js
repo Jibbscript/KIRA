@@ -1,9 +1,19 @@
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const crypto = require("crypto");
 const { spawn, spawnSync } = require("child_process");
 
-function createDaemonController({ appRoot, configFile, daemonBin, daemonUrl, onLog, isPackaged = false }) {
+function createDaemonController({
+  appRoot,
+  configFile,
+  daemonBin,
+  daemonUrl,
+  runtimeEnvDir,
+  runtimeStateFile,
+  onLog,
+  isPackaged = false,
+}) {
   let daemonProcess = null;
   let daemonManagedByDesktop = false;
   let logBuffer = [];
@@ -310,11 +320,23 @@ function createDaemonController({ appRoot, configFile, daemonBin, daemonUrl, onL
     }
 
     const pyprojectFile = path.join(appRoot, "pyproject.toml");
+    const lockFile = path.join(appRoot, "uv.lock");
     if (!fs.existsSync(pyprojectFile)) {
       return {
         ok: false,
         message: `Packaged KiraClaw project files are missing: ${pyprojectFile}`,
       };
+    }
+    if (!fs.existsSync(lockFile)) {
+      return {
+        ok: false,
+        message: `Packaged KiraClaw lock file is missing: ${lockFile}`,
+      };
+    }
+
+    const syncResult = await ensurePackagedRuntime({ uvPath, pyprojectFile, lockFile });
+    if (!syncResult.ok) {
+      return syncResult;
     }
 
     return {
@@ -325,8 +347,108 @@ function createDaemonController({ appRoot, configFile, daemonBin, daemonUrl, onL
       env: {
         ...process.env,
         APP_ENV: "production",
+        UV_PROJECT_ENVIRONMENT: runtimeEnvDir,
       },
     };
+  }
+
+  function readJson(filePath) {
+    try {
+      return JSON.parse(fs.readFileSync(filePath, "utf8"));
+    } catch {
+      return null;
+    }
+  }
+
+  function computeRuntimeFingerprint(pyprojectFile, lockFile) {
+    const hash = crypto.createHash("sha256");
+    hash.update(fs.readFileSync(pyprojectFile));
+    hash.update("\n---\n");
+    hash.update(fs.readFileSync(lockFile));
+    return hash.digest("hex");
+  }
+
+  function runtimeNeedsSync(fingerprint) {
+    if (!runtimeEnvDir || !runtimeStateFile) {
+      return true;
+    }
+
+    const state = readJson(runtimeStateFile);
+    if (!state || state.fingerprint !== fingerprint) {
+      return true;
+    }
+
+    const expectedEntrypoint = path.join(
+      runtimeEnvDir,
+      process.platform === "win32" ? "Scripts" : "bin",
+      process.platform === "win32" ? "kiraclaw-agentd.exe" : "kiraclaw-agentd",
+    );
+    return !fs.existsSync(expectedEntrypoint);
+  }
+
+  function runUvSync(uvPath, env) {
+    return new Promise((resolve, reject) => {
+      const proc = spawn(uvPath, ["sync", "--frozen", "--no-dev"], {
+        cwd: appRoot,
+        env,
+        stdio: ["ignore", "pipe", "pipe"],
+        windowsHide: true,
+      });
+
+      proc.stdout.on("data", (chunk) => emit("stdout", String(chunk)));
+      proc.stderr.on("data", (chunk) => emit("stderr", String(chunk)));
+      proc.on("error", (error) => reject(error));
+      proc.on("close", (code) => {
+        if (code === 0) {
+          resolve();
+          return;
+        }
+        reject(new Error(`uv sync failed with code ${code}`));
+      });
+    });
+  }
+
+  async function ensurePackagedRuntime({ uvPath, pyprojectFile, lockFile }) {
+    if (!runtimeEnvDir || !runtimeStateFile) {
+      return {
+        ok: false,
+        message: "Runtime environment paths are not configured.",
+      };
+    }
+
+    fs.mkdirSync(path.dirname(runtimeStateFile), { recursive: true });
+    fs.mkdirSync(runtimeEnvDir, { recursive: true });
+
+    const fingerprint = computeRuntimeFingerprint(pyprojectFile, lockFile);
+    if (!runtimeNeedsSync(fingerprint)) {
+      return { ok: true };
+    }
+
+    emit("info", "Refreshing KiraClaw Python runtime dependencies...");
+
+    const syncEnv = {
+      ...process.env,
+      APP_ENV: "production",
+      UV_PROJECT_ENVIRONMENT: runtimeEnvDir,
+    };
+
+    try {
+      await runUvSync(uvPath, syncEnv);
+      fs.writeFileSync(
+        runtimeStateFile,
+        `${JSON.stringify({ fingerprint }, null, 2)}\n`,
+        "utf8",
+      );
+      emit("info", "KiraClaw Python runtime is up to date.");
+      return { ok: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      emit("error", `Failed to refresh KiraClaw runtime: ${message}`);
+      return {
+        ok: false,
+        message: `Failed to refresh KiraClaw runtime: ${message}`,
+      };
+    }
   }
 
   async function openChromeProfileSetup() {

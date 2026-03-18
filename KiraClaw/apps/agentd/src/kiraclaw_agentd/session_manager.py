@@ -33,7 +33,15 @@ def _external_response_text(record: RunRecord) -> str:
         return result.public_response_text
     if source in {"", "api"}:
         return result.internal_summary
-    if source in {"slack-group", "telegram-group", "slack-dm", "telegram-dm", "scheduler"}:
+    if source in {
+        "slack-group",
+        "telegram-group",
+        "discord-group",
+        "slack-dm",
+        "telegram-dm",
+        "discord-dm",
+        "scheduler",
+    }:
         return ""
     return result.internal_summary
 

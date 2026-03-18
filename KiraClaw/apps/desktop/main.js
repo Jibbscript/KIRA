@@ -1,6 +1,16 @@
 const { app, BrowserWindow, ipcMain } = require("electron");
 
-const { APP_ROOT, CONFIG_DIR, CONFIG_FILE, DAEMON_BIN, DAEMON_URL, DESKTOP_ROOT, IS_PACKAGED } = require("./lib/constants");
+const {
+  APP_ROOT,
+  CONFIG_DIR,
+  CONFIG_FILE,
+  DAEMON_BIN,
+  DAEMON_URL,
+  DESKTOP_ROOT,
+  IS_PACKAGED,
+  RUNTIME_ENV_DIR,
+  RUNTIME_STATE_FILE,
+} = require("./lib/constants");
 const { createConfigStore } = require("./lib/config-store");
 const { createDaemonController } = require("./lib/daemon-controller");
 const { createMainWindow } = require("./lib/create-window");
@@ -21,6 +31,8 @@ const daemonController = createDaemonController({
   configFile: CONFIG_FILE,
   daemonBin: DAEMON_BIN,
   daemonUrl: DAEMON_URL,
+  runtimeEnvDir: RUNTIME_ENV_DIR,
+  runtimeStateFile: RUNTIME_STATE_FILE,
   isPackaged: IS_PACKAGED,
   onLog(payload) {
     if (mainWindow && !mainWindow.isDestroyed()) {
