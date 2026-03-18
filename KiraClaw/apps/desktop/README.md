@@ -52,6 +52,7 @@ Use:
 - `npm run build:bridge`
 - `npm run build:bridge:mac`
 - `npm run build:bridge:win`
+- `npm run deploy:bridge:mac:skip-notarize`
 - `npm run build:bridge:smoke`
 - `npm run build:bridge:smoke:dir`
 
@@ -78,6 +79,7 @@ Smoke build scope:
 Current bridge runtime behavior:
 
 - packaged bridge builds try to auto-install `uv` on the target machine if it is missing
+- a temporary `skip-notarize` deploy path exists for mac bridge releases when Apple notarization is blocked by account agreements
 - dev mode still expects the local development environment to be set up already
 
 Bridge preflight currently verifies:
