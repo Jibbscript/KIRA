@@ -1,6 +1,7 @@
 import { DEFAULT_CHAT_SESSION_ID } from "./constants.mjs";
 import { getAgentName } from "./branding.mjs";
 import { byId, escapeHtml } from "./dom.mjs";
+import { t } from "./i18n.mjs";
 
 let chatBusy = false;
 const FILE_PATH_PATTERN = /(~[\\/][^\s<>"']*|[A-Za-z]:[\\/][^\s<>"']*|\/(?:Users|tmp|private|var|Volumes|opt|Applications|Library)[^\s<>"']*)/g;
@@ -16,7 +17,7 @@ export function clearChatThread(state) {
     <article class="terminal-entry assistant">
       <div class="terminal-line">
         <span class="terminal-prefix">${escapeHtml(agentName)}</span>
-        <div class="terminal-text">Direct chat is ready.</div>
+        <div class="terminal-text">${escapeHtml(t("chat.ready"))}</div>
       </div>
     </article>
   `;
@@ -32,7 +33,7 @@ function appendChatMessage(state, role, text, { meta = "", pending = false, pref
   message.className = `terminal-entry ${role}${pending ? " pending" : ""}`;
   const pendingSuffix = pending ? '<span class="thinking-dots" aria-hidden="true"></span>' : "";
   const metaMarkup = meta ? `<div class="terminal-meta">${escapeHtml(meta)}</div>` : "";
-  const speaker = prefix || (role === "user" ? "You" : getAgentName(state));
+  const speaker = prefix || (role === "user" ? t("chat.userLabel") : getAgentName(state));
   message.innerHTML = `
     <div class="terminal-line">
       <span class="terminal-prefix">${escapeHtml(speaker)}</span>
@@ -53,7 +54,7 @@ function replaceChatMessage(message, state, role, text, { meta = "", pending = f
   message.className = `terminal-entry ${role}${pending ? " pending" : ""}`;
   const pendingSuffix = pending ? '<span class="thinking-dots" aria-hidden="true"></span>' : "";
   const metaMarkup = meta ? `<div class="terminal-meta">${escapeHtml(meta)}</div>` : "";
-  const speaker = prefix || (role === "user" ? "You" : getAgentName(state));
+  const speaker = prefix || (role === "user" ? t("chat.userLabel") : getAgentName(state));
   message.innerHTML = `
     <div class="terminal-line">
       <span class="terminal-prefix">${escapeHtml(speaker)}</span>
@@ -78,7 +79,7 @@ function summarizeToolEvents(toolEvents) {
     return "";
   }
 
-  return `Used: ${[...counts.entries()].map(([name, count]) => count > 1 ? `${name} x${count}` : name).join(", ")}`;
+  return `${t("chat.usedTools")}: ${[...counts.entries()].map(([name, count]) => count > 1 ? `${name} x${count}` : name).join(", ")}`;
 }
 
 function buildChatMeta(toolEvents, extraParts = []) {
@@ -139,7 +140,7 @@ function setChatBusy(isBusy) {
   }
   if (sendButton) {
     sendButton.disabled = isBusy;
-    sendButton.textContent = isBusy ? "Thinking..." : "Send";
+    sendButton.textContent = isBusy ? t("chat.thinking") : t("chat.send");
   }
   if (clearButton) {
     clearButton.disabled = isBusy;
@@ -161,9 +162,9 @@ async function sendChat({ api, state, onAfterSend }) {
 
   appendChatMessage(state, "user", prompt);
   input.value = "";
-  const thinkingPrefix = `${getAgentName(state)} (Thinking)`;
-  const pendingMessage = appendChatMessage(state, "assistant", "Thinking", {
-    meta: "Preparing a response...",
+  const thinkingPrefix = `${getAgentName(state)} (${t("chat.thinkingLabel")})`;
+  const pendingMessage = appendChatMessage(state, "assistant", t("chat.thinking"), {
+    meta: t("chat.preparingResponse"),
     pending: true,
     prefix: thinkingPrefix,
   });
@@ -172,7 +173,7 @@ async function sendChat({ api, state, onAfterSend }) {
   try {
     const daemonStatus = await api.getDaemonStatus();
     if (!daemonStatus.running) {
-      throw new Error("Start the KIRA Engine first.");
+      throw new Error(t("chat.startEngineFirst"));
     }
 
     const result = await api.runPrompt({
@@ -184,7 +185,7 @@ async function sendChat({ api, state, onAfterSend }) {
       throw new Error(result.error || "Run failed.");
     }
 
-    const internalSummary = result.internal_summary || result.final_response || "(empty internal summary)";
+    const internalSummary = result.internal_summary || result.final_response || t("chat.emptyInternalSummary");
     const spokenText = Array.isArray(result.spoken_messages) && result.spoken_messages.length > 0
       ? result.spoken_messages.join("\n\n")
       : "";
@@ -199,7 +200,7 @@ async function sendChat({ api, state, onAfterSend }) {
         "assistant",
         spokenText,
         {
-          meta: buildChatMeta(result.tool_events, ["Spoken reply"]),
+          meta: buildChatMeta(result.tool_events, [t("chat.spokenReply")]),
         },
       );
       if (!summaryMatchesSpoken) {
@@ -208,7 +209,7 @@ async function sendChat({ api, state, onAfterSend }) {
           "assistant",
           internalSummary,
           {
-            meta: "Internal summary",
+            meta: t("chat.internalSummary"),
             prefix: thinkingPrefix,
           },
         );
@@ -220,14 +221,14 @@ async function sendChat({ api, state, onAfterSend }) {
         "assistant",
         internalSummary,
         {
-          meta: buildChatMeta(result.tool_events, ["Internal summary"]),
+          meta: buildChatMeta(result.tool_events, [t("chat.internalSummary")]),
           prefix: thinkingPrefix,
         },
       );
     }
     await onAfterSend();
   } catch (error) {
-    replaceChatMessage(pendingMessage, state, "assistant", `Run failed: ${error.message}`);
+    replaceChatMessage(pendingMessage, state, "assistant", t("chat.runFailed", { message: error.message }));
   } finally {
     setChatBusy(false);
     input.focus();

@@ -1,3 +1,5 @@
+import { t } from "./i18n.mjs";
+
 export function byId(id) {
   return document.getElementById(id);
 }
@@ -43,7 +45,8 @@ export function initializePasswordToggles() {
     const toggleButton = document.createElement("button");
     toggleButton.type = "button";
     toggleButton.className = "toggle-visibility";
-    toggleButton.setAttribute("aria-label", "Toggle secret visibility");
+    toggleButton.dataset.i18nAriaLabel = "common.toggleSecretVisibility";
+    toggleButton.setAttribute("aria-label", t("common.toggleSecretVisibility"));
     toggleButton.innerHTML = createEyeToggleMarkup();
 
     toggleButton.addEventListener("click", () => {

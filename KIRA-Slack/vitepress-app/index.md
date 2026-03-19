@@ -8,7 +8,7 @@ hero:
   text: Agentic Desktop Runtime
   tagline: Local chat, Slack, Telegram, and Discord channels, workspace skills, schedules, and run logs in one desktop app.
   image:
-    src: /images/screenshots/hero-kira-claw.png
+    src: /images/screenshots/hero-kira-claw-new.png
     alt: KiraClaw
   actions:
     - theme: brand

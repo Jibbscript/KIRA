@@ -1,5 +1,6 @@
 import { byId, setText } from "./dom.mjs";
 import { getAgentName } from "./branding.mjs";
+import { t } from "./i18n.mjs";
 
 function applyStatusChip(element, state, onlineText, offlineText, pendingText) {
   if (!element) {
@@ -39,7 +40,7 @@ export function updateHomeStatus(state, daemonStatus, runtime) {
   const isOnline = Boolean(runtime) || Boolean(daemonStatus?.running);
   const statusState = !hasKnownStatus ? "pending" : (isOnline ? "online" : "offline");
 
-  applyStatusChip(byId("daemon-badge"), statusState, "Online", "Offline", "Checking");
+  applyStatusChip(byId("daemon-badge"), statusState, t("common.online"), t("common.offline"), t("common.checking"));
 
   if (landingPanel) {
     landingPanel.classList.toggle("online", isOnline);
@@ -53,16 +54,16 @@ export function updateHomeStatus(state, daemonStatus, runtime) {
 
   setText(heroTitle, "KiraClaw");
   setText(heroVersion, state.appMeta?.version ? `v${state.appMeta.version}` : "");
-  setText(agentBubble, `My name is ${agentName}`);
+  setText(agentBubble, t("home.myNameIs", { name: agentName }));
 
   if (startButton && restartButton && stopButton) {
     startButton.disabled = engineAction.busy || isOnline;
     restartButton.disabled = engineAction.busy || !isOnline;
     stopButton.disabled = engineAction.busy || !isOnline;
 
-    startButton.textContent = engineAction.busy && engineAction.action === "start" ? "Starting..." : "Start Engine";
-    restartButton.textContent = engineAction.busy && engineAction.action === "restart" ? "Restarting..." : "Restart";
-    stopButton.textContent = engineAction.busy && engineAction.action === "stop" ? "Stopping..." : "Stop";
+    startButton.textContent = engineAction.busy && engineAction.action === "start" ? t("home.starting") : t("common.startEngine");
+    restartButton.textContent = engineAction.busy && engineAction.action === "restart" ? t("home.restarting") : t("common.restart");
+    stopButton.textContent = engineAction.busy && engineAction.action === "stop" ? t("home.stopping") : t("common.stop");
   }
 
   if (!runtime || !isOnline) {
@@ -93,20 +94,20 @@ function defaultBannerState(statusState) {
   if (statusState === "online") {
     return {
       tone: "success",
-      message: "KIRA Engine is online on this device.",
+      message: t("home.onlineMessage"),
     };
   }
 
   if (statusState === "offline") {
     return {
       tone: "error",
-      message: "KIRA Engine is offline on this device.",
+      message: t("home.offlineMessage"),
     };
   }
 
   return {
     tone: "neutral",
-    message: "Checking KIRA Engine status...",
+    message: t("home.checkingMessage"),
   };
 }
 

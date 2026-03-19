@@ -21,7 +21,7 @@
                 <path d="M4.2 6.8v6.2h7.6V6.8"></path>
               </svg>
             </span>
-            <span>Home</span>
+            <span data-i18n="nav.home">Home</span>
           </button>
           <button class="nav-item" data-view="chat">
             <span class="nav-item-icon" aria-hidden="true">
@@ -29,7 +29,7 @@
                 <path d="M3 4.5h10v6H7.2L4 13V10.5H3z"></path>
               </svg>
             </span>
-            <span>Talk</span>
+            <span data-i18n="nav.talk">Talk</span>
           </button>
           <button class="nav-item" data-view="channel">
             <span class="nav-item-icon" aria-hidden="true">
@@ -40,7 +40,7 @@
                 <path d="M2 9.8h10.4"></path>
               </svg>
             </span>
-            <span>Channels</span>
+            <span data-i18n="nav.channels">Channels</span>
           </button>
           <button class="nav-item" data-view="skills">
             <span class="nav-item-icon" aria-hidden="true">
@@ -72,7 +72,7 @@
                 <path d="M2.8 6.2h10.4"></path>
               </svg>
             </span>
-            <span>Schedules</span>
+            <span data-i18n="nav.schedules">Schedules</span>
           </button>
           <button class="nav-item" data-view="settings">
             <span class="nav-item-icon" aria-hidden="true">
@@ -85,7 +85,7 @@
                 <path d="M13.3 12a1.3 1.3 0 1 0-2.6 0 1.3 1.3 0 0 0 2.6 0Z"></path>
               </svg>
             </span>
-            <span>Settings</span>
+            <span data-i18n="nav.settings">Settings</span>
           </button>
           <button class="nav-item" data-view="runs">
             <span class="nav-item-icon" aria-hidden="true">
@@ -97,66 +97,67 @@
                 <path d="M5.6 12h3.2"></path>
               </svg>
             </span>
-            <span>Logs</span>
+            <span data-i18n="nav.logs">Logs</span>
           </button>
         </nav>
 
         <div class="sidebar-foot">
-          <div id="daemon-badge" class="status-chip offline">KIRA Engine offline</div>
+          <div id="daemon-badge" class="status-chip offline" data-i18n="home.daemonBadge">KIRA Engine offline</div>
         </div>
       </aside>
 
       <main class="content">
         <section id="view-overview" class="view active">
           <section id="landing-panel" class="landing-panel offline">
+            <video class="landing-video-bg" autoplay muted loop playsinline preload="auto" aria-hidden="true">
+              <source src="https://bridge.pubg.com/images/main/keyart_movie.webm" type="video/webm" />
+            </video>
             <div class="landing-brandlockup">
-              <img class="landing-logo" src="../assets/krafton-horizontal-logo-white.svg" alt="KRAFTON" />
+              <img id="landing-logo-image" class="landing-logo" src="../assets/krafton-horizontal-logo-black.svg" alt="KRAFTON" />
             </div>
             <div class="landing-center">
               <div id="landing-avatar-shell" class="landing-avatar-shell offline" aria-hidden="true">
                 <span class="avatar-halo"></span>
-                <img class="avatar-claw-mark avatar-claw-mark-left" src="../assets/claw.png" alt="" />
-                <img class="avatar-claw-mark avatar-claw-mark-right" src="../assets/claw.png" alt="" />
-              <div id="agent-bubble" class="agent-bubble">My name is KIRA</div>
-              <img class="landing-avatar" src="../assets/kira-icon.png" alt="KIRA icon" />
+                <div id="agent-bubble" class="agent-bubble">My name is KIRA</div>
+                <img class="landing-avatar" src="../assets/kira_claw_logo_white.png" alt="KiraClaw logo" />
+              </div>
+              <h3 id="hero-title">KiraClaw</h3>
+              <div id="engine-action-banner" class="engine-action-banner neutral" hidden>
+                <span id="engine-action-dot" class="engine-action-dot"></span>
+                <span id="engine-action-message"></span>
+              </div>
+              <div class="button-row landing-actions">
+                <button id="start-daemon" class="primary" data-i18n="common.startEngine">Start Engine</button>
+                <button id="restart-daemon" class="ghost" data-i18n="common.restart">Restart</button>
+                <button id="stop-daemon" class="ghost" data-i18n="common.stop">Stop</button>
+              </div>
             </div>
-            <h3 id="hero-title">KiraClaw</h3>
-            <div id="engine-action-banner" class="engine-action-banner neutral" hidden>
-              <span id="engine-action-dot" class="engine-action-dot"></span>
-              <span id="engine-action-message"></span>
-            </div>
-            <div class="button-row landing-actions">
-              <button id="start-daemon" class="primary">Start Engine</button>
-              <button id="restart-daemon" class="ghost">Restart</button>
-              <button id="stop-daemon" class="ghost">Stop</button>
-            </div>
-          </div>
-          <div id="hero-version" class="hero-version">v0.0.0</div>
+            <div id="hero-version" class="hero-version">v0.0.0</div>
+          </section>
         </section>
-      </section>
 
         <section id="view-chat" class="view">
           <header class="view-head terminal-view-head">
             <div>
-              <h2>Talk</h2>
-              <p class="inline-copy">Talk directly with the same KIRA Engine used by Slack.</p>
+              <h2 data-i18n="chat.title">Talk</h2>
+              <p class="inline-copy" data-i18n="chat.subtitle">Talk directly with the same KIRA Engine used by Slack.</p>
             </div>
           </header>
 
           <section class="terminal-shell">
             <div class="terminal-toolbar">
               <label class="terminal-session">
-                <span>Session</span>
+                <span data-i18n="chat.session">Session</span>
                 <input id="chat-session-id" value="desktop:local" />
               </label>
-              <button id="clear-chat" class="ghost">Clear</button>
+              <button id="clear-chat" class="ghost" data-i18n="chat.clear">Clear</button>
             </div>
 
             <section id="chat-thread" class="chat-thread terminal-thread">
               <article class="terminal-entry assistant">
                 <div class="terminal-line">
                   <span class="terminal-prefix">KiraClaw</span>
-                  <div class="terminal-text">Direct chat is ready.</div>
+                  <div class="terminal-text" data-i18n="chat.ready">Direct chat is ready.</div>
                 </div>
               </article>
             </section>
@@ -164,10 +165,10 @@
             <footer class="terminal-compose">
               <div class="terminal-input-row">
                 <span class="terminal-prompt-label">&gt;</span>
-                <textarea id="chat-input" rows="4" placeholder="Ask KIRA to work on something."></textarea>
+                <textarea id="chat-input" rows="4" placeholder="Ask KIRA to work on something." data-i18n-placeholder="chat.placeholder"></textarea>
               </div>
               <div class="terminal-compose-foot">
-                <button id="send-chat" class="primary">Send</button>
+                <button id="send-chat" class="primary" data-i18n="chat.send">Send</button>
               </div>
             </footer>
           </section>
@@ -176,15 +177,15 @@
         <section id="view-channel" class="view">
           <header class="view-head">
             <div>
-              <h2>Channels</h2>
-              <p class="inline-copy">Desktop chat, Slack, and lightweight chat channels can share the same local engine.</p>
+              <h2 data-i18n="channels.title">Channels</h2>
+              <p class="inline-copy" data-i18n="channels.subtitle">Desktop chat, Slack, and lightweight chat channels can share the same local engine.</p>
             </div>
           </header>
 
           <div class="settings-panel">
             <section class="settings-section">
               <div class="card-head">
-                <h3>Available now</h3>
+                <h3 data-i18n="channels.availableNow">Available now</h3>
                 <div id="channel-available-count" class="status-chip online">0 Active</div>
               </div>
               <div class="channel-list">
@@ -196,7 +197,7 @@
                       <span class="toggle-slider"></span>
                     </label>
                   </div>
-                  <p class="section-copy">Desktop chat and Slack already share the same KIRA Engine.</p>
+                  <p class="section-copy" data-i18n="channels.slackDesc">Desktop chat and Slack already share the same KIRA Engine.</p>
                 </article>
                 <article id="channel-card-telegram" class="channel-card">
                   <div class="channel-card-head">
@@ -206,7 +207,7 @@
                       <span class="toggle-slider"></span>
                     </label>
                   </div>
-                  <p class="section-copy">Telegram can use the same local engine through a lightweight bot adapter.</p>
+                  <p class="section-copy" data-i18n="channels.telegramDesc">Telegram can use the same local engine through a lightweight bot adapter.</p>
                 </article>
                 <article id="channel-card-discord" class="channel-card">
                   <div class="channel-card-head">
@@ -216,70 +217,70 @@
                       <span class="toggle-slider"></span>
                     </label>
                   </div>
-                  <p class="section-copy">Discord can use the same local engine for DMs and server channels through a bot gateway.</p>
+                  <p class="section-copy" data-i18n="channels.discordDesc">Discord can use the same local engine for DMs and server channels through a bot gateway.</p>
                 </article>
                 <article class="channel-card">
                   <div class="channel-card-head">
-                    <strong>More channels</strong>
-                    <span class="subtle-pill">Later</span>
+                    <strong data-i18n="channels.moreChannels">More channels</strong>
+                    <span class="subtle-pill" data-i18n="common.later">Later</span>
                   </div>
-                  <p class="section-copy">Additional channels will be added here after the core Slack flow is solid.</p>
+                  <p class="section-copy" data-i18n="channels.moreChannelsDesc">Additional channels will be added here after the core Slack flow is solid.</p>
                 </article>
               </div>
             </section>
 
             <section class="settings-section">
-              <h3>Slack</h3>
-              <p class="section-copy">These values let Slack talk to the same local engine that desktop chat uses.</p>
+              <h3 data-i18n="channels.slackTitle">Slack</h3>
+              <p class="section-copy" data-i18n="channels.slackCopy">These values let Slack talk to the same local engine that desktop chat uses.</p>
               <fieldset id="slack-channel-fields" class="form-grid channel-config-fields">
                 <label class="field full">
-                  <span>Slack Bot Token</span>
+                  <span data-i18n="channels.slackBotToken">Slack Bot Token</span>
                   <input id="SLACK_BOT_TOKEN" type="password" placeholder="xoxb-..." data-secret="true" />
                 </label>
                 <label class="field full">
-                  <span>Slack App Token</span>
+                  <span data-i18n="channels.slackAppToken">Slack App Token</span>
                   <input id="SLACK_APP_TOKEN" type="password" placeholder="xapp-..." data-secret="true" />
                 </label>
                 <label class="field">
-                  <span>Slack Signing Secret</span>
+                  <span data-i18n="channels.slackSigningSecret">Slack Signing Secret</span>
                   <input id="SLACK_SIGNING_SECRET" type="password" data-secret="true" />
                 </label>
                 <label class="field">
-                  <span>Slack Team ID</span>
+                  <span data-i18n="channels.slackTeamId">Slack Team ID</span>
                   <input id="SLACK_TEAM_ID" placeholder="T..." />
                 </label>
                 <label class="field full">
-                  <span>Allowed Names</span>
+                  <span data-i18n="channels.allowedNames">Allowed Names</span>
                   <input id="SLACK_ALLOWED_NAMES" placeholder="Jiho, 전지호" />
                 </label>
               </fieldset>
             </section>
 
             <section class="settings-section">
-              <h3>Telegram</h3>
-              <p class="section-copy">Telegram uses a simple bot token and currently works best for direct chats with the same local engine.</p>
+              <h3 data-i18n="channels.telegramTitle">Telegram</h3>
+              <p class="section-copy" data-i18n="channels.telegramCopy">Telegram uses a simple bot token and currently works best for direct chats with the same local engine.</p>
               <fieldset id="telegram-channel-fields" class="form-grid channel-config-fields">
                 <label class="field full">
-                  <span>Telegram Bot Token</span>
+                  <span data-i18n="channels.telegramBotToken">Telegram Bot Token</span>
                   <input id="TELEGRAM_BOT_TOKEN" type="password" placeholder="123456:ABC..." data-secret="true" />
                 </label>
                 <label class="field full">
-                  <span>Allowed Names</span>
+                  <span data-i18n="channels.allowedNames">Allowed Names</span>
                   <input id="TELEGRAM_ALLOWED_NAMES" placeholder="@jiho, 전지호" />
                 </label>
               </fieldset>
             </section>
 
             <section class="settings-section">
-              <h3>Discord</h3>
-              <p class="section-copy">Discord uses a bot token and can share the same local engine for direct messages and server channels.</p>
+              <h3 data-i18n="channels.discordTitle">Discord</h3>
+              <p class="section-copy" data-i18n="channels.discordCopy">Discord uses a bot token and can share the same local engine for direct messages and server channels.</p>
               <fieldset id="discord-channel-fields" class="form-grid channel-config-fields">
                 <label class="field full">
-                  <span>Discord Bot Token</span>
+                  <span data-i18n="channels.discordBotToken">Discord Bot Token</span>
                   <input id="DISCORD_BOT_TOKEN" type="password" placeholder="Bot token" data-secret="true" />
                 </label>
                 <label class="field full">
-                  <span>Allowed Names</span>
+                  <span data-i18n="channels.allowedNames">Allowed Names</span>
                   <input id="DISCORD_ALLOWED_NAMES" placeholder="@jiho, Jiho Jeon, 전지호" />
                 </label>
               </fieldset>
@@ -287,11 +288,11 @@
           </div>
 
           <footer class="view-foot">
-            <div id="channel-status" class="status-text">Channel settings are read from `~/.kira/config.env`.</div>
+            <div id="channel-status" class="status-text" data-i18n="channels.statusReadFrom">Channel settings are read from `~/.kira/config.env`.</div>
             <div class="button-row">
-              <button id="reload-channel-config" class="ghost">Reload</button>
-              <button id="save-channel-settings" class="primary">Save Channel</button>
-              <button id="apply-channel-settings" class="ghost">Save And Restart Engine</button>
+              <button id="reload-channel-config" class="ghost" data-i18n="common.reload">Reload</button>
+              <button id="save-channel-settings" class="primary" data-i18n="common.saveChannel">Save Channel</button>
+              <button id="apply-channel-settings" class="ghost" data-i18n="common.saveAndRestartEngine">Save And Restart Engine</button>
             </div>
           </footer>
         </section>
@@ -300,17 +301,17 @@
           <header class="view-head">
             <div>
               <h2>MCP</h2>
-              <p class="inline-copy">Only external npm MCP integrations live here.</p>
+              <p class="inline-copy" data-i18n="mcp.subtitle">Only external npm MCP integrations live here.</p>
             </div>
           </header>
 
           <div class="settings-panel">
             <section class="settings-section">
-              <h3>Browser</h3>
-              <p class="section-copy">Chrome profile setup happens before the engine starts. The profile lives inside your configured workspace folder as <code>chrome_profile</code>.</p>
+              <h3 data-i18n="mcp.browserTitle">Browser</h3>
+              <p class="section-copy" data-i18n="mcp.browserDesc">Chrome profile setup happens before the engine starts. The profile lives inside your configured workspace folder as <code>chrome_profile</code>.</p>
               <div class="toggle-field">
                 <div class="toggle-copy">
-                  <span class="toggle-title">Enabled</span>
+                  <span class="toggle-title" data-i18n="mcp.browserEnabledLabel">Enabled</span>
                 </div>
                 <label class="toggle-switch">
                   <input type="checkbox" id="CHROME_ENABLED" />
@@ -319,18 +320,18 @@
               </div>
               <div class="form-grid external-mcp-fields" data-external-mcp-fields="CHROME_ENABLED" hidden>
                 <div class="field full browser-setup-actions">
-                  <button id="open-browser-profile-setup" class="ghost" type="button">Open Profile Setup</button>
-                  <p class="section-copy">Use this before browser MCP tasks to sign in with the same Chrome profile.</p>
+                  <button id="open-browser-profile-setup" class="ghost" type="button" data-i18n="common.openProfileSetup">Open Profile Setup</button>
+                  <p class="section-copy" data-i18n="mcp.browserSetupCopy">Use this before browser MCP tasks to sign in with the same Chrome profile.</p>
                 </div>
               </div>
             </section>
 
             <section class="settings-section">
               <h3>Perplexity</h3>
-              <p class="section-copy">Use the npm MCP package with your Perplexity API key.</p>
+              <p class="section-copy" data-i18n="mcp.perplexityDesc">Use the npm MCP package with your Perplexity API key.</p>
               <div class="toggle-field">
                 <div class="toggle-copy">
-                  <span class="toggle-title">Enabled</span>
+                  <span class="toggle-title" data-i18n="common.enabled">Enabled</span>
                 </div>
                 <label class="toggle-switch">
                   <input type="checkbox" id="PERPLEXITY_ENABLED" />
@@ -339,7 +340,7 @@
               </div>
               <div class="form-grid external-mcp-fields" data-external-mcp-fields="PERPLEXITY_ENABLED" hidden>
                 <label class="field full">
-                  <span>Perplexity API Key</span>
+                  <span data-i18n="mcp.perplexityApiKey">Perplexity API Key</span>
                   <input id="PERPLEXITY_API_KEY" type="password" data-secret="true" placeholder="pplx-..." />
                 </label>
               </div>
@@ -347,10 +348,10 @@
 
             <section class="settings-section">
               <h3>GitLab</h3>
-              <p class="section-copy">Use the npm GitLab MCP package. `https://gitlab.com` is enough for GitLab.com.</p>
+              <p class="section-copy" data-i18n="mcp.gitlabDesc">Use the npm GitLab MCP package. `https://gitlab.com` is enough for GitLab.com.</p>
               <div class="toggle-field">
                 <div class="toggle-copy">
-                  <span class="toggle-title">Enabled</span>
+                  <span class="toggle-title" data-i18n="common.enabled">Enabled</span>
                 </div>
                 <label class="toggle-switch">
                   <input type="checkbox" id="GITLAB_ENABLED" />
@@ -359,11 +360,11 @@
               </div>
               <div class="form-grid external-mcp-fields" data-external-mcp-fields="GITLAB_ENABLED" hidden>
                 <label class="field">
-                  <span>GitLab URL</span>
+                  <span data-i18n="mcp.gitlabUrl">GitLab URL</span>
                   <input id="GITLAB_API_URL" placeholder="https://gitlab.com" />
                 </label>
                 <label class="field">
-                  <span>Access Token</span>
+                  <span data-i18n="mcp.accessToken">Access Token</span>
                   <input id="GITLAB_PERSONAL_ACCESS_TOKEN" type="password" data-secret="true" />
                 </label>
               </div>
@@ -371,10 +372,10 @@
 
             <section class="settings-section">
               <h3>Microsoft 365</h3>
-              <p class="section-copy">Lokka MCP uses interactive OAuth on first run and covers Outlook, OneDrive, and SharePoint.</p>
+              <p class="section-copy" data-i18n="mcp.ms365Desc">Lokka MCP uses interactive OAuth on first run and covers Outlook, OneDrive, and SharePoint.</p>
               <div class="toggle-field">
                 <div class="toggle-copy">
-                  <span class="toggle-title">Enabled</span>
+                  <span class="toggle-title" data-i18n="common.enabled">Enabled</span>
                 </div>
                 <label class="toggle-switch">
                   <input type="checkbox" id="MS365_ENABLED" />
@@ -383,11 +384,11 @@
               </div>
               <div class="form-grid external-mcp-fields" data-external-mcp-fields="MS365_ENABLED" hidden>
                 <label class="field">
-                  <span>Client ID</span>
+                  <span data-i18n="mcp.clientId">Client ID</span>
                   <input id="MS365_CLIENT_ID" placeholder="Azure App Client ID" />
                 </label>
                 <label class="field">
-                  <span>Tenant ID</span>
+                  <span data-i18n="mcp.tenantId">Tenant ID</span>
                   <input id="MS365_TENANT_ID" placeholder="Azure Tenant ID" />
                 </label>
               </div>
@@ -395,10 +396,10 @@
 
             <section class="settings-section">
               <h3>Atlassian</h3>
-              <p class="section-copy">Remote Atlassian MCP uses browser OAuth on first run. Use one of the site URLs to scope the tenant.</p>
+              <p class="section-copy" data-i18n="mcp.atlassianDesc">Remote Atlassian MCP uses browser OAuth on first run. Use one of the site URLs to scope the tenant.</p>
               <div class="toggle-field">
                 <div class="toggle-copy">
-                  <span class="toggle-title">Enabled</span>
+                  <span class="toggle-title" data-i18n="common.enabled">Enabled</span>
                 </div>
                 <label class="toggle-switch">
                   <input type="checkbox" id="ATLASSIAN_ENABLED" />
@@ -407,15 +408,15 @@
               </div>
               <div class="form-grid external-mcp-fields" data-external-mcp-fields="ATLASSIAN_ENABLED" hidden>
                 <label class="field">
-                  <span>Confluence Site URL</span>
+                  <span data-i18n="mcp.confluenceSiteUrl">Confluence Site URL</span>
                   <input id="ATLASSIAN_CONFLUENCE_SITE_URL" placeholder="https://your-domain.atlassian.net" />
                 </label>
                 <label class="field">
-                  <span>Jira Site URL</span>
+                  <span data-i18n="mcp.jiraSiteUrl">Jira Site URL</span>
                   <input id="ATLASSIAN_JIRA_SITE_URL" placeholder="https://your-domain.atlassian.net" />
                 </label>
                 <label class="field full">
-                  <span>Default Confluence Page ID</span>
+                  <span data-i18n="mcp.defaultConfluencePageId">Default Confluence Page ID</span>
                   <input id="ATLASSIAN_CONFLUENCE_DEFAULT_PAGE_ID" placeholder="782407271" />
                 </label>
               </div>
@@ -423,10 +424,10 @@
 
             <section class="settings-section">
               <h3>Tableau</h3>
-              <p class="section-copy">Tableau MCP uses server, site, and PAT values from your Tableau account.</p>
+              <p class="section-copy" data-i18n="mcp.tableauDesc">Tableau MCP uses server, site, and PAT values from your Tableau account.</p>
               <div class="toggle-field">
                 <div class="toggle-copy">
-                  <span class="toggle-title">Enabled</span>
+                  <span class="toggle-title" data-i18n="common.enabled">Enabled</span>
                 </div>
                 <label class="toggle-switch">
                   <input type="checkbox" id="TABLEAU_ENABLED" />
@@ -435,40 +436,40 @@
               </div>
               <div class="form-grid external-mcp-fields" data-external-mcp-fields="TABLEAU_ENABLED" hidden>
                 <label class="field">
-                  <span>Server</span>
+                  <span data-i18n="mcp.server">Server</span>
                   <input id="TABLEAU_SERVER" placeholder="https://your-tableau-server" />
                 </label>
                 <label class="field">
-                  <span>Site Name</span>
+                  <span data-i18n="mcp.siteName">Site Name</span>
                   <input id="TABLEAU_SITE_NAME" placeholder="site-name" />
                 </label>
                 <label class="field">
-                  <span>PAT Name</span>
+                  <span data-i18n="mcp.patName">PAT Name</span>
                   <input id="TABLEAU_PAT_NAME" placeholder="personal-access-token-name" />
                 </label>
                 <label class="field">
-                  <span>PAT Value</span>
+                  <span data-i18n="mcp.patValue">PAT Value</span>
                   <input id="TABLEAU_PAT_VALUE" type="password" data-secret="true" />
                 </label>
               </div>
             </section>
 
             <section class="settings-section">
-              <h3>Custom Remote MCP</h3>
-              <p class="section-copy">Add remote MCP servers with a name and URL. They will load through <code>mcp-remote</code>.</p>
+              <h3 data-i18n="mcp.customRemoteTitle">Custom Remote MCP</h3>
+              <p class="section-copy" data-i18n="mcp.customRemoteDesc">Add remote MCP servers with a name and URL. They will load through <code>mcp-remote</code>.</p>
               <div id="remote-mcp-list" class="remote-mcp-list"></div>
               <div class="button-row remote-mcp-add-row">
-                <button id="add-remote-mcp" class="ghost" type="button">+ Add Server</button>
+                <button id="add-remote-mcp" class="ghost" type="button" data-i18n="common.addServer">+ Add Server</button>
               </div>
             </section>
           </div>
 
           <footer class="view-foot">
-            <div id="mcp-status" class="status-text">External MCP settings are read from `~/.kira/config.env`.</div>
+            <div id="mcp-status" class="status-text" data-i18n="mcp.settingsReadFrom">External MCP settings are read from `~/.kira/config.env`.</div>
             <div class="button-row">
-              <button id="reload-mcp-config" class="ghost">Reload</button>
-              <button id="save-mcp-settings" class="primary">Save MCP</button>
-              <button id="apply-mcp-settings" class="ghost">Save And Restart Engine</button>
+              <button id="reload-mcp-config" class="ghost" data-i18n="common.reload">Reload</button>
+              <button id="save-mcp-settings" class="primary" data-i18n="common.saveMcp">Save MCP</button>
+              <button id="apply-mcp-settings" class="ghost" data-i18n="common.saveAndRestartEngine">Save And Restart Engine</button>
             </div>
           </footer>
         </section>
@@ -476,23 +477,23 @@
         <section id="view-schedules" class="view">
           <header class="view-head">
             <div>
-              <h2>Schedules</h2>
-              <p class="inline-copy">View the registered scheduler jobs stored in the current workspace.</p>
+              <h2 data-i18n="schedules.title">Schedules</h2>
+              <p class="inline-copy" data-i18n="schedules.subtitle">View the registered scheduler jobs stored in the current workspace.</p>
             </div>
           </header>
 
           <section class="settings-section">
             <div class="card-head">
-              <h3>Registered schedules</h3>
-              <div class="status-chip online">Read Only</div>
-            </div>
+                <h3 data-i18n="schedules.registered">Registered schedules</h3>
+                <div class="status-chip online" data-i18n="common.readOnly">Read Only</div>
+              </div>
             <div id="schedule-list" class="simple-list"></div>
           </section>
 
           <footer class="view-foot">
-            <div id="schedule-status" class="status-text">Loading schedules...</div>
+            <div id="schedule-status" class="status-text" data-i18n="schedules.loading">Loading schedules...</div>
             <div class="button-row">
-              <button id="reload-schedules" class="ghost">Reload</button>
+              <button id="reload-schedules" class="ghost" data-i18n="common.reload">Reload</button>
             </div>
           </footer>
         </section>
@@ -501,25 +502,25 @@
           <header class="view-head">
             <div>
               <h2>Skills</h2>
-              <p class="inline-copy">See which SKILL.md packages KiraClaw can load from the workspace folders.</p>
+              <p class="inline-copy" data-i18n="skills.subtitle">See which SKILL.md packages KiraClaw can load from the workspace folders.</p>
             </div>
           </header>
 
           <div class="settings-panel">
             <section class="settings-section">
               <div class="card-head">
-                <h3>Available Skills</h3>
-                <div class="status-chip online">Loaded On Demand</div>
+                <h3 data-i18n="skills.available">Available Skills</h3>
+                <div class="status-chip online" data-i18n="common.loadedOnDemand">Loaded On Demand</div>
               </div>
               <div id="skills-list" class="skills-list"></div>
             </section>
           </div>
 
           <footer class="view-foot">
-            <div id="skills-status" class="status-text">Skills are discovered from the workspace folders.</div>
+            <div id="skills-status" class="status-text" data-i18n="skills.status">Skills are discovered from the workspace folders.</div>
             <div class="button-row">
-              <button id="open-workspace-skills" class="ghost">Open Workspace Folder</button>
-              <button id="reload-skills" class="ghost">Reload</button>
+              <button id="open-workspace-skills" class="ghost" data-i18n="common.openWorkspaceFolder">Open Workspace Folder</button>
+              <button id="reload-skills" class="ghost" data-i18n="common.reload">Reload</button>
             </div>
           </footer>
         </section>
@@ -527,24 +528,24 @@
         <section id="view-runs" class="view">
           <header class="view-head">
             <div>
-              <h2>Logs</h2>
-              <p class="inline-copy">Inspect recent internal summaries, spoken replies, tool usage, and silent runs.</p>
+              <h2 data-i18n="logs.title">Logs</h2>
+              <p class="inline-copy" data-i18n="logs.subtitle">Inspect recent internal summaries, spoken replies, tool usage, and silent runs.</p>
             </div>
           </header>
 
           <section class="settings-section">
             <div class="card-head">
-              <h3>Recent logs</h3>
-              <div class="status-chip online">Read Only</div>
-            </div>
+                <h3 data-i18n="logs.recent">Recent logs</h3>
+                <div class="status-chip online" data-i18n="common.readOnly">Read Only</div>
+              </div>
             <div id="run-log-list" class="simple-list"></div>
           </section>
 
           <footer class="view-foot">
-            <div id="run-log-status" class="status-text">Loading recent runs...</div>
+            <div id="run-log-status" class="status-text" data-i18n="logs.loading">Loading recent runs...</div>
             <div class="button-row">
-              <button id="open-run-log-file" class="ghost">Open Log File</button>
-              <button id="reload-run-logs" class="ghost">Reload</button>
+              <button id="open-run-log-file" class="ghost" data-i18n="common.openLogFile">Open Log File</button>
+              <button id="reload-run-logs" class="ghost" data-i18n="common.reload">Reload</button>
             </div>
           </footer>
         </section>
@@ -552,69 +553,84 @@
         <section id="view-settings" class="view">
           <header class="view-head">
             <div>
-              <h2>Settings</h2>
-              <p class="inline-copy">Configure the KIRA Engine, Slack adapter, and model keys in one place.</p>
+              <h2 data-i18n="settings.title">Settings</h2>
+              <p class="inline-copy" data-i18n="settings.subtitle">Configure the KIRA Engine, Slack adapter, and model keys in one place.</p>
             </div>
             <div class="toolbar">
-              <button id="reload-config" class="ghost">Reload</button>
+              <label class="theme-picker toolbar-picker">
+                <span data-i18n="settings.theme">Theme</span>
+                <select id="ui-theme" class="form-select">
+                  <option value="red" data-i18n="settings.themeRed">Krafton Red</option>
+                  <option value="pubg" data-i18n="settings.themePubg">PUBG Gold</option>
+                </select>
+              </label>
+              <label class="language-picker toolbar-picker">
+                <span data-i18n="settings.language">Language</span>
+                <select id="ui-language" class="form-select">
+                  <option value="en">English</option>
+                  <option value="ko">한국어</option>
+                </select>
+              </label>
+              <button id="reload-config" class="ghost" data-i18n="common.reload">Reload</button>
             </div>
           </header>
 
           <div class="settings-panel">
             <section class="settings-section">
-              <h3>Identity</h3>
-              <p class="section-copy">Choose the name this desktop agent shows inside the app and Slack.</p>
+              <h3 data-i18n="settings.identityTitle">Identity</h3>
+              <p class="section-copy" data-i18n="settings.identityDesc">Choose the name this desktop agent shows inside the app and Slack.</p>
               <div class="form-grid">
                 <label class="field full">
-                  <span>Agent Name</span>
+                  <span data-i18n="settings.agentName">Agent Name</span>
                   <input id="KIRACLAW_AGENT_NAME" placeholder="KIRA" />
                 </label>
                 <label class="field full">
-                  <span>Persona</span>
+                  <span data-i18n="settings.persona">Persona</span>
                   <textarea
                     id="KIRACLAW_AGENT_PERSONA"
                     rows="5"
                     placeholder="Calm, concise, pragmatic. Prefer action over explanation. Speak only when useful in group spaces."
+                    data-i18n-placeholder="settings.personaPlaceholder"
                   ></textarea>
                 </label>
               </div>
             </section>
 
             <section class="settings-section">
-              <h3>Model</h3>
-              <p class="section-copy">Pick the provider the engine should use and register the keys it needs.</p>
+              <h3 data-i18n="settings.modelTitle">Model</h3>
+              <p class="section-copy" data-i18n="settings.modelDesc">Pick the provider the engine should use and register the keys it needs.</p>
               <div class="form-grid">
                 <label class="field">
-                  <span>Provider</span>
+                  <span data-i18n="settings.provider">Provider</span>
                   <select id="KIRACLAW_PROVIDER" class="form-select">
                     <option value="claude">Claude</option>
                     <option value="openai">OpenAI</option>
                   </select>
                 </label>
                 <label class="field">
-                  <span>Model Override</span>
+                  <span data-i18n="settings.modelOverride">Model Override</span>
                   <input id="KIRACLAW_MODEL" placeholder="claude-opus-4-6 or gpt-5.2" />
                 </label>
                 <label class="field full provider-field" data-provider="claude">
-                  <span>Anthropic API Key</span>
+                  <span data-i18n="settings.anthropicApiKey">Anthropic API Key</span>
                   <input id="ANTHROPIC_API_KEY" type="password" placeholder="sk-ant-..." data-secret="true" />
                 </label>
                 <label class="field full provider-field" data-provider="openai">
-                  <span>OpenAI API Key</span>
+                  <span data-i18n="settings.openaiApiKey">OpenAI API Key</span>
                   <input id="OPENAI_API_KEY" type="password" placeholder="sk-..." data-secret="true" />
                 </label>
               </div>
             </section>
 
             <section class="settings-section">
-              <h3>Workspace</h3>
-              <p class="section-copy">Keep the bridge mode simple: reuse `.kira` and choose the workspace this agent should use.</p>
+              <h3 data-i18n="settings.workspaceTitle">Workspace</h3>
+              <p class="section-copy" data-i18n="settings.workspaceDesc">Keep the bridge mode simple: reuse `.kira` and choose the workspace this agent should use.</p>
               <div class="form-grid">
                 <label class="field full">
-                  <span>Filesystem Base Dir</span>
+                  <span data-i18n="settings.filesystemBaseDir">Filesystem Base Dir</span>
                   <div class="field-action-row">
                     <input id="FILESYSTEM_BASE_DIR" placeholder="/Users/you/Documents/KIRA" />
-                    <button id="open-filesystem-base-dir" class="ghost" type="button">Open Folder</button>
+                    <button id="open-filesystem-base-dir" class="ghost" type="button" data-i18n="common.openFolder">Open Folder</button>
                   </div>
                 </label>
               </div>
@@ -622,10 +638,10 @@
           </div>
 
           <footer class="view-foot">
-            <div id="settings-status" class="status-text">Settings are read from `~/.kira/config.env`.</div>
+            <div id="settings-status" class="status-text" data-i18n="settings.statusReadFrom">Settings are read from `~/.kira/config.env`.</div>
             <div class="button-row">
-              <button id="save-settings" class="primary">Save Settings</button>
-              <button id="apply-settings" class="ghost">Save And Restart Engine</button>
+              <button id="save-settings" class="primary" data-i18n="common.saveSettings">Save Settings</button>
+              <button id="apply-settings" class="ghost" data-i18n="common.saveAndRestartEngine">Save And Restart Engine</button>
             </div>
           </footer>
         </section>

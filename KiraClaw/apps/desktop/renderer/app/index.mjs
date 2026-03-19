@@ -7,7 +7,9 @@ import { bindSettingsActions, applySettingsToForm, collectSettingsUpdates, setSe
 import { bindSkillsActions, renderSkillsState } from "./skills.mjs";
 import { bindScheduleActions, renderSchedulesState } from "./schedules.mjs";
 import { bindRunLogActions, renderRunLogsState } from "./logs.mjs";
+import { initI18n, setLanguage, t } from "./i18n.mjs";
 import { state } from "./state.mjs";
+import { initTheme } from "./theme.mjs";
 
 const api = window.kiraclaw;
 let engineActionTimer = null;
@@ -18,6 +20,17 @@ function renderDesktopState() {
   }
   applyAgentIdentity(state);
   updateHomeStatus(state, state.daemonStatus, state.runtime);
+}
+
+function rerenderLanguageSensitiveViews() {
+  renderDesktopState();
+  renderSkillsState(state);
+  renderSchedulesState(state);
+  renderRunLogsState(state);
+  const chatThread = byId("chat-thread");
+  if (chatThread && chatThread.querySelectorAll(".terminal-entry").length <= 1) {
+    clearChatThread(state);
+  }
 }
 
 async function refreshActiveView() {
@@ -82,7 +95,7 @@ async function loadSkills() {
     renderSkillsState(state);
   } catch (error) {
     state.skills = { skills: [] };
-    setSettingsStatus(`Skill load failed: ${error.message}`);
+    setSettingsStatus(t("status.skillLoadFailed", { message: error.message }));
     renderSkillsState(state);
   }
 }
@@ -150,7 +163,7 @@ async function refreshRuntime() {
 }
 
 async function saveSettings({ restart = false } = {}) {
-  setSettingsStatus("Saving settings...");
+  setSettingsStatus(t("status.savingSettings"));
 
   try {
     const updates = collectSettingsUpdates(state);
@@ -163,7 +176,7 @@ async function saveSettings({ restart = false } = {}) {
       setEngineAction({
         action: "restart",
         busy: true,
-        message: "Restarting KIRA Engine with the new settings...",
+        message: t("status.restartingWithNewSettings"),
         tone: "progress",
         visible: true,
       });
@@ -172,28 +185,28 @@ async function saveSettings({ restart = false } = {}) {
       setEngineAction({
         action: "restart",
         busy: false,
-        message: result.success ? "KIRA Engine restarted with the new settings." : (result.message || "KIRA Engine restart failed."),
+        message: result.success ? t("status.engineRestartedWithNewSettings") : (result.message || t("status.engineRestartFailed")),
         tone: result.success ? "success" : "error",
         visible: true,
       });
-      setSettingsStatus(result.success ? "Settings saved and engine restarted." : (result.message || "Settings saved, but engine restart failed."));
+      setSettingsStatus(result.success ? t("status.settingsSavedAndRestarted") : (result.message || t("status.settingsSavedButRestartFailed")));
       scheduleEngineActionClear();
     } else {
-      setSettingsStatus("Settings saved to ~/.kira/config.env.");
+      setSettingsStatus(t("status.settingsSavedToConfig"));
     }
 
     await refreshRuntime();
   } catch (error) {
-    setSettingsStatus(`Save failed: ${error.message}`);
+    setSettingsStatus(t("status.saveFailed", { message: error.message }));
   }
 }
 
 async function runDaemonAction(action) {
-  setSettingsStatus(`${action} KIRA Engine...`);
+  setSettingsStatus(t("status.actionProgress", { action: progressLabelForAction(action) }));
   setEngineAction({
     action,
     busy: true,
-    message: `${progressLabelForAction(action)} KIRA Engine...`,
+    message: t("status.actionProgress", { action: progressLabelForAction(action) }),
     tone: "progress",
     visible: true,
   });
@@ -209,22 +222,22 @@ async function runDaemonAction(action) {
     setEngineAction({
       action,
       busy: false,
-      message: result.message || `KIRA Engine ${action} completed.`,
+      message: result.message || t("status.actionCompleted", { action }),
       tone: result.success ? "success" : "error",
       visible: true,
     });
-    setSettingsStatus(result.message || `KIRA Engine ${action} completed.`);
+    setSettingsStatus(result.message || t("status.actionCompleted", { action }));
     await refreshRuntime();
     scheduleEngineActionClear();
   } catch (error) {
     setEngineAction({
       action,
       busy: false,
-      message: `KIRA Engine ${action} failed: ${error.message}`,
+      message: t("status.actionFailed", { action, message: error.message }),
       tone: "error",
       visible: true,
     });
-    setSettingsStatus(`KIRA Engine ${action} failed: ${error.message}`);
+    setSettingsStatus(t("status.actionFailed", { action, message: error.message }));
     await refreshRuntime();
     scheduleEngineActionClear();
   }
@@ -232,11 +245,11 @@ async function runDaemonAction(action) {
 
 function progressLabelForAction(action) {
   const labels = {
-    start: "Starting",
-    restart: "Restarting",
-    stop: "Stopping",
+    start: t("status.start"),
+    restart: t("status.restart"),
+    stop: t("status.stop"),
   };
-  return labels[action] || "Updating";
+  return labels[action] || t("status.updating");
 }
 
 function bindActions() {
@@ -267,12 +280,12 @@ function bindActions() {
     onSaveAndRestart: () => saveSettings({ restart: true }),
   });
   document.getElementById("open-browser-profile-setup")?.addEventListener("click", async () => {
-    setSettingsStatus("Opening Chrome profile setup...");
+    setSettingsStatus(t("status.openingChromeProfileSetup"));
     try {
       const result = await api.openChromeProfileSetup();
-      setSettingsStatus(result.message || "Chrome profile setup opened.");
+      setSettingsStatus(result.message || t("status.chromeProfileSetupOpened"));
     } catch (error) {
-      setSettingsStatus(`Profile setup failed: ${error.message}`);
+      setSettingsStatus(t("status.profileSetupFailed", { message: error.message }));
     }
   });
   document.getElementById("open-filesystem-base-dir")?.addEventListener("click", async () => {
@@ -284,16 +297,16 @@ function bindActions() {
       "";
 
     if (!targetPath) {
-      setSettingsStatus("Filesystem Base Dir is empty.");
+      setSettingsStatus(t("status.filesystemBaseDirEmpty"));
       return;
     }
 
-    setSettingsStatus("Opening Filesystem Base Dir...");
+    setSettingsStatus(t("status.openingFilesystemBaseDir"));
     try {
       const result = await api.openFilesystemBaseDir(targetPath);
-      setSettingsStatus(result.message || "Filesystem Base Dir opened.");
+      setSettingsStatus(result.message || t("status.filesystemBaseDirOpened"));
     } catch (error) {
-      setSettingsStatus(`Open Folder failed: ${error.message}`);
+      setSettingsStatus(t("status.openFolderFailed", { message: error.message }));
     }
   });
   bindChatActions({
@@ -306,15 +319,15 @@ function bindActions() {
     onReload: () => loadSkills(),
     onOpenPath: async (targetPath) => {
       if (!targetPath) {
-        setSettingsStatus("Skill folder is not configured.");
+        setSettingsStatus(t("status.skillFolderNotConfigured"));
         return;
       }
-      setSettingsStatus("Opening skill folder...");
+      setSettingsStatus(t("status.openingSkillFolder"));
       try {
         const result = await api.openPath(targetPath);
-        setSettingsStatus(result.message || "Skill folder opened.");
+        setSettingsStatus(result.message || t("status.skillFolderOpened"));
       } catch (error) {
-        setSettingsStatus(`Open Folder failed: ${error.message}`);
+        setSettingsStatus(t("status.openFolderFailed", { message: error.message }));
       }
     },
   });
@@ -326,15 +339,15 @@ function bindActions() {
     onReload: loadRunLogs,
     onOpenPath: async (targetPath) => {
       if (!targetPath) {
-        setSettingsStatus("Run log file is not configured.");
+        setSettingsStatus(t("status.runLogFileNotConfigured"));
         return;
       }
-      setSettingsStatus("Opening run log file...");
+      setSettingsStatus(t("status.openingRunLogFile"));
       try {
         const result = await api.openPath(targetPath);
-        setSettingsStatus(result.message || "Run log file opened.");
+        setSettingsStatus(result.message || t("status.runLogFileOpened"));
       } catch (error) {
-        setSettingsStatus(`Open Folder failed: ${error.message}`);
+        setSettingsStatus(t("status.openFolderFailed", { message: error.message }));
       }
     },
   });
@@ -350,6 +363,17 @@ function bindActions() {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
+  state.language = initI18n({
+    onChange: (language) => {
+      state.language = language;
+      rerenderLanguageSensitiveViews();
+    },
+  });
+  state.theme = initTheme({
+    onChange: (theme) => {
+      state.theme = theme;
+    },
+  });
   initializePasswordToggles();
   bindActions();
   await loadAppMeta();

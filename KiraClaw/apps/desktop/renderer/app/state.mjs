@@ -3,6 +3,8 @@ export const state = {
   appMeta: null,
   config: {},
   daemonStatus: null,
+  language: "en",
+  theme: "red",
   engineAction: {
     action: null,
     busy: false,

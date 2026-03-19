@@ -1,5 +1,6 @@
 import { BOOLEAN_FIELDS, EXTERNAL_MCP_CONFIG_FIELDS, EXTERNAL_MCP_SERVER_NAMES, PROVIDER_DEFAULT_MODELS, SETTINGS_FIELDS, SELECT_DEFAULTS } from "./constants.mjs";
 import { byId, escapeHtml, setText } from "./dom.mjs";
+import { t } from "./i18n.mjs";
 
 function normalizeBoolean(value) {
   return String(value ?? "").trim().toLowerCase() === "true";
@@ -35,7 +36,7 @@ function renderRemoteMcpServers(servers) {
   if (!servers.length) {
     list.innerHTML = `
       <article class="remote-mcp-card remote-mcp-card-empty">
-        <p class="section-copy">No custom remote MCP servers yet.</p>
+        <p class="section-copy">${escapeHtml(t("mcp.noRemoteServers"))}</p>
       </article>
     `;
     return;
@@ -45,16 +46,16 @@ function renderRemoteMcpServers(servers) {
     <article class="remote-mcp-card" data-remote-mcp-index="${index}">
       <div class="form-grid remote-mcp-grid">
         <label class="field">
-          <span>Name</span>
+          <span>${escapeHtml(t("common.name"))}</span>
           <input data-remote-mcp-input="name" value="${escapeHtml(server.name)}" placeholder="myserver" />
         </label>
         <label class="field">
-          <span>URL</span>
+          <span>${escapeHtml(t("common.url"))}</span>
           <input data-remote-mcp-input="url" value="${escapeHtml(server.url)}" placeholder="https://example.com/mcp" />
         </label>
       </div>
       <div class="button-row remote-mcp-actions">
-        <button type="button" class="danger-button" data-remote-mcp-delete="${index}">Delete</button>
+        <button type="button" class="danger-button" data-remote-mcp-delete="${index}">${escapeHtml(t("common.delete"))}</button>
       </div>
     </article>
   `).join("");
@@ -79,16 +80,16 @@ function validateRemoteMcpServers(servers) {
       continue;
     }
     if (!server.name) {
-      throw new Error("Custom MCP name is required.");
+      throw new Error(t("mcp.customNameRequired"));
     }
     if (!/^[a-z0-9-]+$/.test(server.name)) {
-      throw new Error("Custom MCP name can use only lowercase letters, numbers, and hyphens.");
+      throw new Error(t("mcp.customNamePattern"));
     }
     if (!server.url) {
-      throw new Error(`Custom MCP URL is required for ${server.name}.`);
+      throw new Error(t("mcp.customUrlRequired", { name: server.name }));
     }
     if (seen.has(server.name)) {
-      throw new Error(`Custom MCP name is duplicated: ${server.name}.`);
+      throw new Error(t("mcp.customNameDuplicated", { name: server.name }));
     }
     seen.add(server.name);
   }
@@ -206,7 +207,7 @@ function syncChannelCards(state) {
   }
 
   const count = channelStates.filter(([, active]) => active).length;
-  setText(byId("channel-available-count"), `${count} Active`);
+  setText(byId("channel-available-count"), t("common.activeCount", { count }));
 
   const slackFields = byId("slack-channel-fields");
   const telegramFields = byId("telegram-channel-fields");
@@ -297,10 +298,10 @@ function syncMcpView(state) {
 
   if (!runtime) {
     if (configuredNames.length > 0) {
-      setText(byId("mcp-status"), `Enabled in config: ${configuredNames.join(", ")}`);
+      setText(byId("mcp-status"), t("mcp.enabledInConfig", { names: configuredNames.join(", ") }));
       return;
     }
-    setText(byId("mcp-status"), "External MCP settings are read from ~/.kira/config.env.");
+    setText(byId("mcp-status"), t("mcp.settingsReadFrom"));
     return;
   }
 
@@ -308,13 +309,13 @@ function syncMcpView(state) {
   const externalLoaded = (runtime.mcp_loaded_servers || []).filter((name) => configuredSet.has(name) || EXTERNAL_MCP_SERVER_NAMES.includes(name));
   const externalFailed = (runtime.mcp_failed_servers || []).filter((name) => configuredSet.has(name) || EXTERNAL_MCP_SERVER_NAMES.includes(name));
   if (externalLoaded.length > 0) {
-    const parts = [`Loaded now: ${externalLoaded.join(", ")}`];
+    const parts = [t("mcp.loadedNow", { names: externalLoaded.join(", ") })];
     if (externalFailed.length > 0) {
-      parts.push(`Failed: ${externalFailed.join(", ")}`);
+      parts.push(t("mcp.failed", { names: externalFailed.join(", ") }));
     } else if (configuredNames.length > externalLoaded.length) {
       const pending = configuredNames.filter((name) => !externalLoaded.includes(name));
       if (pending.length > 0) {
-        parts.push(`Enabled in config: ${pending.join(", ")}`);
+        parts.push(t("mcp.enabledInConfig", { names: pending.join(", ") }));
       }
     }
     setText(byId("mcp-status"), parts.join(" · "));
@@ -327,16 +328,16 @@ function syncMcpView(state) {
   }
 
   if (externalFailed.length > 0) {
-    setText(byId("mcp-status"), `Failed: ${externalFailed.join(", ")}`);
+    setText(byId("mcp-status"), t("mcp.failed", { names: externalFailed.join(", ") }));
     return;
   }
 
   if (configuredNames.length > 0) {
-    setText(byId("mcp-status"), `Enabled in config: ${configuredNames.join(", ")}`);
+    setText(byId("mcp-status"), t("mcp.enabledInConfig", { names: configuredNames.join(", ") }));
     return;
   }
 
-  setText(byId("mcp-status"), "No external npm MCP integrations are loaded right now.");
+  setText(byId("mcp-status"), t("mcp.noExternalLoaded"));
 }
 
 function markSettingsDirty(state) {
@@ -362,7 +363,7 @@ export function bindSettingsActions({ state, onReload, onSave, onSaveAndRestart 
   });
 
   const externalToggleFields = ["CHROME_ENABLED", "PERPLEXITY_ENABLED", "GITLAB_ENABLED", "MS365_ENABLED", "ATLASSIAN_ENABLED", "TABLEAU_ENABLED"];
-  const channelToggleFields = ["SLACK_ENABLED", "TELEGRAM_ENABLED"];
+  const channelToggleFields = ["SLACK_ENABLED", "TELEGRAM_ENABLED", "DISCORD_ENABLED"];
 
   for (const field of externalToggleFields) {
     byId(field)?.addEventListener("change", () => {

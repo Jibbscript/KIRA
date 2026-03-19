@@ -1,24 +1,25 @@
 import { byId, escapeHtml, setText } from "./dom.mjs";
+import { t } from "./i18n.mjs";
 
 function summarizeSchedule(schedule) {
   const type = String(schedule.schedule_type || "").trim();
   const value = String(schedule.schedule_value || "").trim();
   if (!type && !value) {
-    return "Unknown schedule";
+    return t("schedules.unknownSchedule");
   }
   if (type === "cron") {
     return `Cron · ${value}`;
   }
   if (type === "date") {
-    return `One time · ${value}`;
+    return `${t("schedules.oneTime")} · ${value}`;
   }
-  return `${type || "schedule"} · ${value}`;
+  return `${type || t("schedules.scheduleLabel").toLowerCase()} · ${value}`;
 }
 
 function summarizePrompt(text) {
   const normalized = String(text || "").replace(/\s+/g, " ").trim();
   if (!normalized) {
-    return "No prompt text.";
+    return t("schedules.noPromptText");
   }
   if (normalized.length <= 140) {
     return normalized;
@@ -37,7 +38,7 @@ function scheduleMeta(schedule) {
     parts.push(`${channelLabel} ${schedule.channel_target}`);
   }
   if (schedule.user) {
-    parts.push(`User ${schedule.user}`);
+    parts.push(t("schedules.userLabel", { user: schedule.user }));
   }
   return parts.join(" · ");
 }
@@ -51,30 +52,30 @@ export function renderSchedulesState(state) {
   if (state.scheduleError) {
     list.innerHTML = `
       <article class="simple-item">
-        <strong>Schedule load failed</strong>
+        <strong>${escapeHtml(t("schedules.loadFailedTitle"))}</strong>
         <p>${escapeHtml(state.scheduleError)}</p>
       </article>
     `;
-    setText(byId("schedule-status"), `Schedule load failed: ${state.scheduleError}`);
+    setText(byId("schedule-status"), t("schedules.loadFailed", { message: state.scheduleError }));
     return;
   }
 
   if (!state.schedules.length) {
     list.innerHTML = `
       <article class="simple-item">
-        <strong>No schedules yet</strong>
-        <p>No registered schedules were found in the current workspace.</p>
+        <strong>${escapeHtml(t("schedules.noSchedulesTitle"))}</strong>
+        <p>${escapeHtml(t("schedules.noSchedulesBody"))}</p>
       </article>
     `;
-    setText(byId("schedule-status"), "No schedules are configured yet.");
+    setText(byId("schedule-status"), t("schedules.noSchedulesConfigured"));
     return;
   }
 
   list.innerHTML = state.schedules.map((schedule) => `
     <article class="simple-item">
       <div class="schedule-card-head">
-        <strong>${escapeHtml(String(schedule.name || schedule.id || "Schedule"))}</strong>
-        <span class="status-chip ${schedule.is_enabled !== false ? "online" : "offline"}">${schedule.is_enabled !== false ? "Enabled" : "Disabled"}</span>
+        <strong>${escapeHtml(String(schedule.name || schedule.id || t("schedules.scheduleLabel")))}</strong>
+        <span class="status-chip ${schedule.is_enabled !== false ? "online" : "offline"}">${schedule.is_enabled !== false ? escapeHtml(t("common.enabled")) : escapeHtml(t("common.disabled"))}</span>
       </div>
       <p>${escapeHtml(summarizePrompt(schedule.text || ""))}</p>
       <p class="schedule-card-meta">${escapeHtml(summarizeSchedule(schedule))}${scheduleMeta(schedule) ? ` · ${escapeHtml(scheduleMeta(schedule))}` : ""}</p>
@@ -84,7 +85,11 @@ export function renderSchedulesState(state) {
   const fileSuffix = state.scheduleFile ? ` · ${state.scheduleFile}` : "";
   setText(
     byId("schedule-status"),
-    `${state.schedules.length} schedule${state.schedules.length === 1 ? "" : "s"} loaded${fileSuffix}.`,
+    t("schedules.loadedCount", {
+      count: state.schedules.length,
+      suffix: state.schedules.length === 1 ? "" : "s",
+      fileSuffix,
+    }),
   );
 }
 

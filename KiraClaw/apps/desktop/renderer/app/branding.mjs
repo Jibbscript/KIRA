@@ -1,3 +1,5 @@
+import { t } from "./i18n.mjs";
+
 export function getAgentName(state) {
   const configured = (state.config.KIRACLAW_AGENT_NAME || "").trim();
   const runtimeName = state.runtime && state.runtime.agent_name ? String(state.runtime.agent_name).trim() : "";
@@ -5,5 +7,5 @@ export function getAgentName(state) {
 }
 
 export function applyAgentIdentity(state) {
-  document.title = `${getAgentName(state)} · KiraClaw`;
+  document.title = `${getAgentName(state)} · ${t("app.title")}`;
 }
