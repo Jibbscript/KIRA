@@ -111,6 +111,38 @@ def test_telegram_send_message_and_upload_tools_use_requester(tmp_path) -> None:
     ]
 
 
+def test_telegram_send_message_accepts_t_me_url(tmp_path) -> None:
+    settings = KiraClawSettings(
+        data_dir=tmp_path / "data",
+        workspace_dir=tmp_path / "workspace",
+        home_mode="modern",
+        telegram_enabled=True,
+        telegram_bot_token="token",
+    )
+    requester = FakeTelegramRequester()
+    tools = {tool.name: tool for tool in build_telegram_tools(settings, requester=requester)}
+
+    result = json.loads(
+        tools["telegram_send_message"].run(
+            chat_id="https://t.me/kiraclaw_updates",
+            text="hello",
+        )
+    )
+
+    assert result["success"] is True
+    assert requester.calls == [
+        {
+            "method": "sendMessage",
+            "payload": {
+                "chat_id": "@kiraclaw_updates",
+                "text": "hello",
+                "reply_to_message_id": None,
+            },
+            "file_path": None,
+        }
+    ]
+
+
 def test_telegram_upload_file_reports_missing_path(tmp_path) -> None:
     settings = KiraClawSettings(
         data_dir=tmp_path / "data",

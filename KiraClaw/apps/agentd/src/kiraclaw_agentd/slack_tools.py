@@ -27,6 +27,13 @@ def _build_result(success: bool, **payload: Any) -> str:
     return json.dumps(body, ensure_ascii=False, indent=2)
 
 
+_SLACK_CHANNEL_ID_PATTERN = re.compile(r"^[CDG][A-Z0-9]+$")
+_SLACK_USER_ID_PATTERN = re.compile(r"^U[A-Z0-9]+$")
+_SLACK_CHANNEL_TOKEN_PATTERN = re.compile(r"(?<![\w/])#([a-zA-Z0-9._-]+)")
+_SLACK_USER_TOKEN_PATTERN = re.compile(r"(?<![\w/])@([a-zA-Z0-9._-]+)")
+_SPECIAL_MENTIONS = {"here", "channel", "everyone"}
+
+
 class _SlackToolBase(Tool):
     def __init__(self, client_factory: SlackClientFactory) -> None:
         self._client_factory = client_factory
@@ -43,6 +50,14 @@ class _SlackToolBase(Tool):
         except Exception as exc:
             return _build_result(False, error=str(exc))
 
+    def _resolve_channel_target(self, channel_ref: str) -> str:
+        client = self._client()
+        return _resolve_channel_target(client, channel_ref)
+
+    def _format_text(self, text: str) -> str:
+        client = self._client()
+        return _format_slack_text(client, text)
+
 
 def _sanitize_filename(name: str) -> str:
     cleaned = re.sub(r"[^\w.\-]+", "_", name.strip())
@@ -58,6 +73,139 @@ def _resolve_output_path(workspace_dir: Path, *, url_private: str, file_path: st
     filename = _sanitize_filename(Path(unquote(parsed.path)).name)
     channel_segment = channel_id or "downloads"
     return workspace_dir / "files" / "slack" / channel_segment / filename
+
+
+def _normalize_lookup_key(value: str) -> str:
+    return re.sub(r"[\s._-]+", "", value.strip().lower())
+
+
+def _extract_channel_or_user_id(value: str) -> str | None:
+    stripped = value.strip()
+    channel_match = re.match(r"^<#([CDG][A-Z0-9]+)(?:\|[^>]+)?>$", stripped)
+    if channel_match:
+        return channel_match.group(1)
+    user_match = re.match(r"^<@([U][A-Z0-9]+)>$", stripped)
+    if user_match:
+        return user_match.group(1)
+    if _SLACK_CHANNEL_ID_PATTERN.fullmatch(stripped) or _SLACK_USER_ID_PATTERN.fullmatch(stripped):
+        return stripped
+    return None
+
+
+def _iter_conversations(client: Any) -> list[dict[str, Any]]:
+    results: list[dict[str, Any]] = []
+    cursor: str | None = None
+    while True:
+        response = client.conversations_list(
+            types="public_channel,private_channel,mpim,im",
+            limit=1000,
+            cursor=cursor,
+        )
+        results.extend(response.get("channels", []))
+        cursor = (
+            response.get("response_metadata", {}) or {}
+        ).get("next_cursor") or None
+        if not cursor:
+            return results
+
+
+def _iter_users(client: Any) -> list[dict[str, Any]]:
+    results: list[dict[str, Any]] = []
+    cursor: str | None = None
+    while True:
+        response = client.users_list(limit=1000, cursor=cursor)
+        results.extend(response.get("members", []))
+        cursor = (
+            response.get("response_metadata", {}) or {}
+        ).get("next_cursor") or None
+        if not cursor:
+            return results
+
+
+def _find_channel_id_by_name(client: Any, channel_name: str) -> str | None:
+    lookup = _normalize_lookup_key(channel_name.lstrip("#"))
+    if not lookup:
+        return None
+    for channel in _iter_conversations(client):
+        name = str(channel.get("name", "")).strip()
+        if name and _normalize_lookup_key(name) == lookup:
+            return str(channel.get("id", "")) or None
+    return None
+
+
+def _find_user_id_by_name(client: Any, user_name: str) -> str | None:
+    lookup = _normalize_lookup_key(user_name.lstrip("@"))
+    if not lookup:
+        return None
+    for member in _iter_users(client):
+        if member.get("deleted"):
+            continue
+        profile = member.get("profile") or {}
+        candidates = [
+            str(member.get("name", "")),
+            str(profile.get("display_name", "")),
+            str(profile.get("real_name", "")),
+            str(profile.get("display_name_normalized", "")),
+            str(profile.get("real_name_normalized", "")),
+        ]
+        if any(candidate and _normalize_lookup_key(candidate) == lookup for candidate in candidates):
+            return str(member.get("id", "")) or None
+    return None
+
+
+def _resolve_dm_channel_for_user(client: Any, user_id: str) -> str:
+    response = client.conversations_open(users=user_id)
+    channel = response.get("channel") or {}
+    return str(channel.get("id", ""))
+
+
+def _resolve_channel_target(client: Any, channel_ref: str) -> str:
+    extracted = _extract_channel_or_user_id(channel_ref)
+    if extracted:
+        if _SLACK_USER_ID_PATTERN.fullmatch(extracted):
+            resolved_dm = _resolve_dm_channel_for_user(client, extracted)
+            return resolved_dm or extracted
+        return extracted
+
+    channel_id = _find_channel_id_by_name(client, channel_ref)
+    if channel_id:
+        return channel_id
+
+    user_id = _find_user_id_by_name(client, channel_ref)
+    if user_id:
+        resolved_dm = _resolve_dm_channel_for_user(client, user_id)
+        return resolved_dm or user_id
+
+    return channel_ref
+
+
+def _format_special_mention(name: str) -> str:
+    lowered = name.lower()
+    if lowered in _SPECIAL_MENTIONS:
+        return f"<!{lowered}>"
+    return f"@{name}"
+
+
+def _format_slack_text(client: Any, text: str) -> str:
+    def replace_channel(match: re.Match[str]) -> str:
+        name = match.group(1)
+        channel_id = _find_channel_id_by_name(client, name)
+        if not channel_id:
+            return match.group(0)
+        return f"<#{channel_id}|{name}>"
+
+    def replace_user(match: re.Match[str]) -> str:
+        name = match.group(1)
+        if name.lower() in _SPECIAL_MENTIONS:
+            return _format_special_mention(name)
+        user_id = _find_user_id_by_name(client, name)
+        if not user_id:
+            return match.group(0)
+        return f"<@{user_id}>"
+
+    formatted = _SLACK_CHANNEL_TOKEN_PATTERN.sub(replace_channel, text)
+    formatted = _SLACK_USER_TOKEN_PATTERN.sub(replace_user, formatted)
+    return formatted
 
 
 class SlackSendMessageTool(_SlackToolBase):
@@ -83,14 +231,16 @@ class SlackSendMessageTool(_SlackToolBase):
 
     def run(self, channel_id: str, text: str, thread_ts: str | None = None) -> str:
         def _send() -> str:
+            resolved_channel = self._resolve_channel_target(channel_id)
+            formatted_text = self._format_text(text)
             response = self._client().chat_postMessage(
-                channel=channel_id,
-                text=text,
+                channel=resolved_channel,
+                text=formatted_text,
                 thread_ts=thread_ts,
             )
             return _build_result(
                 True,
-                channel=response.get("channel", channel_id),
+                channel=response.get("channel", resolved_channel),
                 ts=response.get("ts"),
                 thread_ts=response.get("message", {}).get("thread_ts", thread_ts),
             )
@@ -118,14 +268,16 @@ class SlackReplyToThreadTool(_SlackToolBase):
 
     def run(self, channel_id: str, thread_ts: str, text: str) -> str:
         def _send() -> str:
+            resolved_channel = self._resolve_channel_target(channel_id)
+            formatted_text = self._format_text(text)
             response = self._client().chat_postMessage(
-                channel=channel_id,
-                text=text,
+                channel=resolved_channel,
+                text=formatted_text,
                 thread_ts=thread_ts,
             )
             return _build_result(
                 True,
-                channel=response.get("channel", channel_id),
+                channel=response.get("channel", resolved_channel),
                 ts=response.get("ts"),
                 thread_ts=response.get("message", {}).get("thread_ts", thread_ts),
             )
@@ -153,12 +305,13 @@ class SlackAddReactionTool(_SlackToolBase):
 
     def run(self, channel_id: str, timestamp: str, reaction: str) -> str:
         def _send() -> str:
+            resolved_channel = self._resolve_channel_target(channel_id)
             self._client().reactions_add(
-                channel=channel_id,
+                channel=resolved_channel,
                 timestamp=timestamp,
                 name=reaction,
             )
-            return _build_result(True, channel=channel_id, timestamp=timestamp, reaction=reaction)
+            return _build_result(True, channel=resolved_channel, timestamp=timestamp, reaction=reaction)
 
         return self._run_with_slack_error_boundary(_send)
 
@@ -208,12 +361,14 @@ class SlackUploadFileTool(_SlackToolBase):
                 return _build_result(False, error=f"file_not_found: {file_path}")
 
             filename = os.path.basename(file_path)
+            resolved_channel = self._resolve_channel_target(channel_id)
+            formatted_comment = self._format_text(initial_comment) if initial_comment else None
             response = self._client().files_upload_v2(
-                channel=channel_id,
+                channel=resolved_channel,
                 file=file_path,
                 filename=filename,
                 title=title or filename,
-                initial_comment=initial_comment,
+                initial_comment=formatted_comment,
                 thread_ts=thread_ts,
             )
             file_info = {}
@@ -223,7 +378,7 @@ class SlackUploadFileTool(_SlackToolBase):
                 file_info = response.get("file", {})
             return _build_result(
                 True,
-                channel=channel_id,
+                channel=resolved_channel,
                 file_id=file_info.get("id"),
                 title=file_info.get("title") or title or filename,
                 name=file_info.get("name") or filename,

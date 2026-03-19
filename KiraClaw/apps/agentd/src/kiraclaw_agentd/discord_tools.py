@@ -23,6 +23,9 @@ def _build_result(success: bool, **payload: Any) -> str:
     return json.dumps(body, ensure_ascii=False, indent=2)
 
 
+DiscordChannelResolver = Callable[[str], str | None]
+
+
 def _sanitize_filename(name: str) -> str:
     cleaned = re.sub(r"[^\w.\-]+", "_", name.strip())
     return cleaned or "discord_file"
@@ -35,6 +38,64 @@ def _resolve_output_path(workspace_dir: Path, *, url: str, channel_id: str | Non
     filename = _sanitize_filename(Path(unquote(urlparse(url).path)).name)
     channel_segment = channel_id or "downloads"
     return workspace_dir / "files" / "discord" / channel_segment / filename
+
+
+_DISCORD_CHANNEL_ID_PATTERN = re.compile(r"^\d+$")
+_DISCORD_CHANNEL_REF_PATTERN = re.compile(r"^<#(\d+)>$")
+_DISCORD_CHANNEL_TOKEN_PATTERN = re.compile(r"(?<![\w/])#([a-zA-Z0-9._-]+)")
+
+
+def _extract_channel_id(value: str) -> str | None:
+    stripped = value.strip()
+    mention = _DISCORD_CHANNEL_REF_PATTERN.match(stripped)
+    if mention:
+        return mention.group(1)
+    if _DISCORD_CHANNEL_ID_PATTERN.fullmatch(stripped):
+        return stripped
+    return None
+
+
+def _normalize_discord_channel_ref(value: str) -> str:
+    return value.strip().lstrip("#").lower()
+
+
+def _discord_get_json(bot_token: str, url: str) -> Any:
+    request = Request(url, headers={"Authorization": f"Bot {bot_token}"})
+    with urlopen(request) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+
+def _make_channel_resolver(bot_token: str) -> DiscordChannelResolver:
+    cache: dict[str, str] = {}
+
+    def _resolve(channel_ref: str) -> str | None:
+        key = _normalize_discord_channel_ref(channel_ref)
+        if not key:
+            return None
+        if key in cache:
+            return cache[key]
+
+        guilds = _discord_get_json(bot_token, "https://discord.com/api/v10/users/@me/guilds")
+        for guild in guilds:
+            guild_id = str(guild.get("id", "")).strip()
+            if not guild_id:
+                continue
+            channels = _discord_get_json(
+                bot_token,
+                f"https://discord.com/api/v10/guilds/{guild_id}/channels",
+            )
+            for channel in channels:
+                if str(channel.get("type")) not in {"0", "5", "15"}:
+                    continue
+                name = _normalize_discord_channel_ref(str(channel.get("name", "")))
+                channel_id = str(channel.get("id", "")).strip()
+                if name and channel_id:
+                    cache.setdefault(name, channel_id)
+                    if name == key:
+                        return channel_id
+        return cache.get(key)
+
+    return _resolve
 
 
 def _make_requester(bot_token: str) -> DiscordRequester:
@@ -77,14 +138,37 @@ def _make_requester(bot_token: str) -> DiscordRequester:
 
 
 class _DiscordToolBase(Tool):
-    def __init__(self, requester: DiscordRequester) -> None:
+    def __init__(self, requester: DiscordRequester, channel_resolver: DiscordChannelResolver | None = None) -> None:
         self._requester = requester
+        self._channel_resolver = channel_resolver
 
     def _run_with_error_boundary(self, fn: Callable[[], str]) -> str:
         try:
             return fn()
         except Exception as exc:
             return _build_result(False, error=str(exc))
+
+    def _resolve_channel_target(self, channel_ref: str) -> str:
+        extracted = _extract_channel_id(channel_ref)
+        if extracted:
+            return extracted
+        if self._channel_resolver is None:
+            return channel_ref
+        resolved = self._channel_resolver(channel_ref)
+        return resolved or channel_ref
+
+    def _format_text(self, text: str) -> str:
+        if self._channel_resolver is None:
+            return text
+
+        def replace_channel(match: re.Match[str]) -> str:
+            name = match.group(1)
+            resolved = self._channel_resolver(name)
+            if not resolved:
+                return match.group(0)
+            return f"<#{resolved}>"
+
+        return _DISCORD_CHANNEL_TOKEN_PATTERN.sub(replace_channel, text)
 
 
 class DiscordSendMessageTool(_DiscordToolBase):
@@ -108,15 +192,16 @@ class DiscordSendMessageTool(_DiscordToolBase):
 
     def run(self, channel_id: str, text: str, reply_to_message_id: int | None = None) -> str:
         def _send() -> str:
-            payload: dict[str, Any] = {"content": text}
+            resolved_channel = self._resolve_channel_target(channel_id)
+            payload: dict[str, Any] = {"content": self._format_text(text)}
             if reply_to_message_id is not None:
                 payload["message_reference"] = {"message_id": str(reply_to_message_id)}
                 payload["allowed_mentions"] = {"replied_user": False}
-            response = self._requester("POST", channel_id, payload, None)
+            response = self._requester("POST", resolved_channel, payload, None)
             if response.get("status", 500) >= 400:
                 return _build_result(False, error=str(response.get("body")))
             body = response.get("body", {})
-            return _build_result(True, channel_id=channel_id, message_id=body.get("id"))
+            return _build_result(True, channel_id=resolved_channel, message_id=body.get("id"))
 
         return self._run_with_error_boundary(_send)
 
@@ -158,13 +243,14 @@ class DiscordUploadFileTool(_DiscordToolBase):
             if not os.path.isfile(file_path):
                 return _build_result(False, error=f"file_not_found: {file_path}")
 
+            resolved_channel = self._resolve_channel_target(channel_id)
             payload: dict[str, Any] = {}
             if caption:
-                payload["content"] = caption
+                payload["content"] = self._format_text(caption)
             if reply_to_message_id is not None:
                 payload["message_reference"] = {"message_id": str(reply_to_message_id)}
                 payload["allowed_mentions"] = {"replied_user": False}
-            response = self._requester("POST", channel_id, payload, file_path)
+            response = self._requester("POST", resolved_channel, payload, file_path)
             if response.get("status", 500) >= 400:
                 return _build_result(False, error=str(response.get("body")))
             body = response.get("body", {})
@@ -172,7 +258,7 @@ class DiscordUploadFileTool(_DiscordToolBase):
             attachment = attachments[0] if attachments else {}
             return _build_result(
                 True,
-                channel_id=channel_id,
+                channel_id=resolved_channel,
                 message_id=body.get("id"),
                 file_name=attachment.get("filename") or os.path.basename(file_path),
                 url=attachment.get("url"),
@@ -222,13 +308,15 @@ def build_discord_tools(
     settings: KiraClawSettings,
     *,
     requester: DiscordRequester | None = None,
+    channel_resolver: DiscordChannelResolver | None = None,
 ) -> list[Tool]:
     if not settings.discord_enabled or not settings.discord_bot_token:
         return []
 
     request_fn = requester or _make_requester(settings.discord_bot_token)
+    resolver = channel_resolver or _make_channel_resolver(settings.discord_bot_token)
     return [
-        DiscordSendMessageTool(request_fn),
-        DiscordUploadFileTool(request_fn),
+        DiscordSendMessageTool(request_fn, channel_resolver=resolver),
+        DiscordUploadFileTool(request_fn, channel_resolver=resolver),
         DiscordDownloadAttachmentTool(settings.discord_bot_token, settings.workspace_dir),
     ]

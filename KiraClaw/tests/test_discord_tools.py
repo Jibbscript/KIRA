@@ -96,6 +96,58 @@ def test_discord_send_message_and_upload_tools_use_requester(tmp_path) -> None:
     assert requests[1]["file_path"] == str(file_path)
 
 
+def test_discord_send_message_resolves_channel_name_and_formats_mentions(tmp_path) -> None:
+    requests: list[dict] = []
+
+    def requester(method, channel_id, payload, file_path=None):
+        requests.append(
+            {
+                "method": method,
+                "channel_id": channel_id,
+                "payload": payload,
+                "file_path": file_path,
+            }
+        )
+        return {"status": 200, "body": {"id": "msg-2", "attachments": []}}
+
+    def channel_resolver(ref: str) -> str | None:
+        lookup = ref.strip().lstrip("#").lower()
+        return {
+            "general": "12345",
+            "announcements": "55555",
+        }.get(lookup)
+
+    settings = KiraClawSettings(
+        data_dir=tmp_path / "data",
+        workspace_dir=tmp_path / "workspace",
+        home_mode="modern",
+        discord_enabled=True,
+        discord_bot_token="token",
+        slack_enabled=False,
+    )
+    tools = {
+        tool.name: tool
+        for tool in build_discord_tools(settings, requester=requester, channel_resolver=channel_resolver)
+    }
+
+    send_result = _payload(
+        tools["discord_send_message"].run(
+            channel_id="#general",
+            text="check #announcements",
+        )
+    )
+
+    assert send_result["success"] is True
+    assert requests == [
+        {
+            "method": "POST",
+            "channel_id": "12345",
+            "payload": {"content": "check <#55555>"},
+            "file_path": None,
+        }
+    ]
+
+
 def test_discord_upload_file_reports_missing_path(tmp_path) -> None:
     settings = KiraClawSettings(
         data_dir=tmp_path / "data",

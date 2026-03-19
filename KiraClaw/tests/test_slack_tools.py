@@ -13,6 +13,7 @@ class FakeSlackClient:
         self.messages: list[dict] = []
         self.reactions: list[dict] = []
         self.uploads: list[dict] = []
+        self.opened_dms: list[dict] = []
 
     def chat_postMessage(self, **kwargs):
         self.messages.append(kwargs)
@@ -38,6 +39,45 @@ class FakeSlackClient:
                 "permalink": "https://slack.example/file/F123",
             },
         }
+
+    def conversations_list(self, **kwargs):
+        return {
+            "channels": [
+                {"id": "C123", "name": "general"},
+                {"id": "C999", "name": "project-updates"},
+            ]
+        }
+
+    def users_list(self, **kwargs):
+        return {
+            "members": [
+                {
+                    "id": "U123",
+                    "name": "jiho",
+                    "profile": {
+                        "display_name": "jiho",
+                        "real_name": "Jiho Jeon",
+                        "display_name_normalized": "jiho",
+                        "real_name_normalized": "Jiho Jeon",
+                    },
+                },
+                {
+                    "id": "U999",
+                    "name": "sena",
+                    "profile": {
+                        "display_name": "sena",
+                        "real_name": "Sena Bot",
+                        "display_name_normalized": "sena",
+                        "real_name_normalized": "Sena Bot",
+                    },
+                },
+            ]
+        }
+
+    def conversations_open(self, **kwargs):
+        self.opened_dms.append(kwargs)
+        user_id = kwargs["users"]
+        return {"channel": {"id": f"D-{user_id}"}}
 
 
 def test_slack_tools_are_gated_by_slack_channel_enablement(tmp_path) -> None:
@@ -118,6 +158,57 @@ def test_slack_send_message_reaction_and_upload_tools_use_client_factory(tmp_pat
             "thread_ts": "111.222",
         }
     ]
+
+
+def test_slack_send_message_resolves_channel_name_and_mentions(tmp_path) -> None:
+    settings = KiraClawSettings(
+        data_dir=tmp_path / "data",
+        workspace_dir=tmp_path / "workspace",
+        home_mode="modern",
+        slack_enabled=True,
+        slack_bot_token="xoxb-token",
+    )
+    client = FakeSlackClient()
+    tools = {tool.name: tool for tool in build_slack_tools(settings, client_factory=lambda: client)}
+
+    result = json.loads(
+        tools["slack_send_message"].run(
+            channel_id="#general",
+            text="Hey @jiho please check #project-updates",
+        )
+    )
+
+    assert result["success"] is True
+    assert client.messages == [
+        {
+            "channel": "C123",
+            "text": "Hey <@U123> please check <#C999|project-updates>",
+            "thread_ts": None,
+        }
+    ]
+
+
+def test_slack_send_message_can_open_dm_from_user_name(tmp_path) -> None:
+    settings = KiraClawSettings(
+        data_dir=tmp_path / "data",
+        workspace_dir=tmp_path / "workspace",
+        home_mode="modern",
+        slack_enabled=True,
+        slack_bot_token="xoxb-token",
+    )
+    client = FakeSlackClient()
+    tools = {tool.name: tool for tool in build_slack_tools(settings, client_factory=lambda: client)}
+
+    result = json.loads(
+        tools["slack_send_message"].run(
+            channel_id="@jiho",
+            text="hello",
+        )
+    )
+
+    assert result["success"] is True
+    assert client.opened_dms == [{"users": "U123"}]
+    assert client.messages == [{"channel": "D-U123", "text": "hello", "thread_ts": None}]
 
 
 def test_slack_upload_file_reports_missing_path(tmp_path) -> None:

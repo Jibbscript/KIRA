@@ -1,6 +1,7 @@
 function setupAutoUpdater() {
   let autoUpdater;
   let log;
+  let updateLifecycle = null;
 
   try {
     ({ autoUpdater } = require("electron-updater"));
@@ -24,15 +25,44 @@ function setupAutoUpdater() {
   autoUpdater.logger = log;
   autoUpdater.logger.transports.file.level = "info";
   autoUpdater.logger.info(`Using packaged app-update.yml: ${updateConfigPath}`);
-  autoUpdater.autoDownload = true;
+  autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
+  app.on("before-quit-for-update", () => {
+    updateLifecycle = "installing";
+    log.info("Auto-update: before-quit-for-update");
+  });
+  let promptingForDownload = false;
+  let promptingForRestart = false;
 
   autoUpdater.on("checking-for-update", () => {
     log.info("Auto-update: checking for update");
   });
 
-  autoUpdater.on("update-available", (info) => {
+  autoUpdater.on("update-available", async (info) => {
     log.info("Auto-update: update available", info);
+    if (promptingForDownload) {
+      return;
+    }
+    promptingForDownload = true;
+    try {
+      const focusedWindow = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0] || null;
+      const result = await dialog.showMessageBox(focusedWindow, {
+        type: "info",
+        buttons: ["Download Now", "Later"],
+        defaultId: 0,
+        cancelId: 1,
+        title: "Update Available",
+        message: `Version ${info.version} is available.`,
+        detail: "Download the latest KiraClaw update in the background?",
+      });
+      if (result.response === 0) {
+        await autoUpdater.downloadUpdate();
+      }
+    } catch (error) {
+      log.error("Auto-update available dialog failed:", error);
+    } finally {
+      promptingForDownload = false;
+    }
   });
 
   autoUpdater.on("update-not-available", (info) => {
@@ -45,6 +75,10 @@ function setupAutoUpdater() {
 
   autoUpdater.on("update-downloaded", async (info) => {
     log.info("Auto-update: update downloaded", info);
+    if (promptingForRestart) {
+      return;
+    }
+    promptingForRestart = true;
     try {
       const focusedWindow = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0] || null;
       const result = await dialog.showMessageBox(focusedWindow, {
@@ -57,10 +91,12 @@ function setupAutoUpdater() {
         detail: "Restart now to apply the latest KiraClaw update.",
       });
       if (result.response === 0) {
-        autoUpdater.quitAndInstall();
+        setImmediate(() => autoUpdater.quitAndInstall(false, true));
       }
     } catch (error) {
       log.error("Auto-update dialog failed:", error);
+    } finally {
+      promptingForRestart = false;
     }
   });
 
@@ -71,6 +107,12 @@ function setupAutoUpdater() {
   autoUpdater.checkForUpdatesAndNotify().catch((error) => {
     log.error("Auto-update check failed:", error);
   });
+
+  return {
+    isInstallingUpdate() {
+      return updateLifecycle === "installing";
+    },
+  };
 }
 
 module.exports = {

@@ -23,6 +23,18 @@ def _build_result(success: bool, **payload: Any) -> str:
     return json.dumps(body, ensure_ascii=False, indent=2)
 
 
+def _normalize_chat_ref(chat_id: str) -> str:
+    value = str(chat_id).strip()
+    if not value:
+        return value
+    for prefix in ("https://t.me/", "http://t.me/", "https://telegram.me/", "http://telegram.me/"):
+        if value.startswith(prefix):
+            handle = value[len(prefix):].strip("/")
+            if handle:
+                return f"@{handle}"
+    return value
+
+
 def _sanitize_filename(name: str) -> str:
     cleaned = re.sub(r"[^\w.\-]+", "_", name.strip())
     return cleaned or "telegram_file"
@@ -97,10 +109,11 @@ class TelegramSendMessageTool(_TelegramToolBase):
 
     def run(self, chat_id: str, text: str, reply_to_message_id: int | None = None) -> str:
         def _send() -> str:
+            resolved_chat = _normalize_chat_ref(chat_id)
             response = self._requester(
                 "sendMessage",
                 {
-                    "chat_id": chat_id,
+                    "chat_id": resolved_chat,
                     "text": text,
                     "reply_to_message_id": reply_to_message_id,
                 },
@@ -109,7 +122,7 @@ class TelegramSendMessageTool(_TelegramToolBase):
             if not response.get("ok"):
                 return _build_result(False, error=str(response.get("description") or response))
             result = response.get("result", {})
-            return _build_result(True, chat_id=chat_id, message_id=result.get("message_id"))
+            return _build_result(True, chat_id=resolved_chat, message_id=result.get("message_id"))
 
         return self._run_with_error_boundary(_send)
 
@@ -151,10 +164,11 @@ class TelegramUploadFileTool(_TelegramToolBase):
             if not os.path.isfile(file_path):
                 return _build_result(False, error=f"file_not_found: {file_path}")
 
+            resolved_chat = _normalize_chat_ref(chat_id)
             response = self._requester(
                 "sendDocument",
                 {
-                    "chat_id": chat_id,
+                    "chat_id": resolved_chat,
                     "caption": caption,
                     "reply_to_message_id": reply_to_message_id,
                 },
@@ -166,7 +180,7 @@ class TelegramUploadFileTool(_TelegramToolBase):
             document = result.get("document", {})
             return _build_result(
                 True,
-                chat_id=chat_id,
+                chat_id=resolved_chat,
                 message_id=result.get("message_id"),
                 file_name=document.get("file_name") or os.path.basename(file_path),
                 mime_type=document.get("mime_type"),

@@ -25,6 +25,7 @@ const configStore = createConfigStore({
 app.setName("KiraClaw");
 
 let mainWindow = null;
+let updaterState = null;
 
 const daemonController = createDaemonController({
   appRoot: APP_ROOT,
@@ -58,7 +59,7 @@ app.whenReady().then(() => {
     daemonController,
   });
   openMainWindow();
-  setupAutoUpdater();
+  updaterState = setupAutoUpdater();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -68,6 +69,9 @@ app.whenReady().then(() => {
 });
 
 app.on("before-quit", async () => {
+  if (updaterState && updaterState.isInstallingUpdate()) {
+    return;
+  }
   await daemonController.shutdownBeforeQuit();
 });
 
