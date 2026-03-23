@@ -9,6 +9,7 @@ from kiraclaw_agentd.engine import (
     create_model,
     list_available_skills,
 )
+from kiraclaw_agentd.process_manager import BackgroundProcessManager
 from kiraclaw_agentd.settings import KiraClawSettings
 
 
@@ -72,6 +73,34 @@ def test_configure_tools_adds_skill_tool_only_when_skills_exist(tmp_path) -> Non
     assert "memory_search" in [tool.name for tool in tools]
     assert "memory_save" in [tool.name for tool in tools]
     assert skill_rows == []
+
+
+def test_configure_tools_adds_exec_and_process_when_manager_present(tmp_path) -> None:
+    settings = KiraClawSettings(
+        data_dir=tmp_path / "data",
+        workspace_dir=tmp_path / "workspace",
+        home_mode="modern",
+        slack_enabled=False,
+        skills_enabled=True,
+        default_skills_dir=None,
+    )
+    settings.ensure_directories()
+    manager = BackgroundProcessManager(
+        workspace_dir=settings.workspace_dir,
+        deny_patterns=settings.deny_patterns,
+        allow_commands=settings.allow_commands,
+        ask_by_default=settings.ask_by_default,
+        max_output_chars=settings.max_output_chars,
+    )
+
+    tools, _skill_rows = _configure_tools(
+        settings,
+        tool_context={"__process_manager__": manager, "session_id": "desktop:local"},
+    )
+
+    tool_names = [tool.name for tool in tools]
+    assert "exec" in tool_names
+    assert "process" in tool_names
 
 
 def test_configure_tools_discovers_workspace_skill_md(tmp_path) -> None:

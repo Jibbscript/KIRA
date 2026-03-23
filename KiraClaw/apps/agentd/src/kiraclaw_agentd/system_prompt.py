@@ -7,6 +7,8 @@ _PREFERRED_TOOL_ORDER = [
     "write",
     "edit",
     "bash",
+    "exec",
+    "process",
     "grep",
     "glob",
     "skill",
@@ -125,6 +127,17 @@ def _format_channel_delivery_guidance(tool_names: list[str]) -> str | None:
     )
 
 
+def _format_process_guidance(tool_names: list[str]) -> str | None:
+    if "exec" not in tool_names and "process" not in tool_names:
+        return None
+
+    return (
+        "Use bash for short synchronous shell commands that should finish before you continue.\n"
+        "Use exec for shell commands that may run for a while or that you may need to revisit later.\n"
+        "If exec returns a running session_id, use process to list, poll, inspect logs, kill, or clear that session."
+    )
+
+
 def build_system_prompt(
     agent_name: str,
     tool_names: list[str],
@@ -151,6 +164,9 @@ def build_system_prompt(
     channel_guidance = _format_channel_delivery_guidance(tool_names)
     if channel_guidance:
         parts.append(channel_guidance)
+    process_guidance = _format_process_guidance(tool_names)
+    if process_guidance:
+        parts.append(process_guidance)
     memory_guidance = _format_memory_tool_guidance(tool_names)
     if memory_guidance:
         parts.append(memory_guidance)

@@ -14,6 +14,8 @@ from krim_sdk.tools import BashTool, SkillTool, default_tools, default_tools_wit
 from kiraclaw_agentd.mcp_runtime import McpRuntime
 from kiraclaw_agentd.memory_tools import build_memory_tools
 from kiraclaw_agentd.discord_tools import build_discord_tools
+from kiraclaw_agentd.process_manager import BackgroundProcessManager
+from kiraclaw_agentd.process_tools import build_process_tools
 from kiraclaw_agentd.settings import KiraClawSettings
 from kiraclaw_agentd.slack_tools import build_slack_tools
 from kiraclaw_agentd.speak_tools import build_speak_tools
@@ -151,6 +153,7 @@ def _configure_tools(
 
     tools.extend(build_speak_tools(settings, tool_context=tool_context))
     tools.extend(build_memory_tools(settings, tool_context=tool_context))
+    tools.extend(build_process_tools(settings, tool_context=tool_context))
     tools.extend(build_slack_tools(settings))
     tools.extend(build_telegram_tools(settings))
     tools.extend(build_discord_tools(settings))
@@ -184,11 +187,19 @@ class KiraClawEngine:
     def __init__(self, settings: KiraClawSettings) -> None:
         self.settings = settings
         self.mcp_runtime = McpRuntime(settings)
+        self.process_manager = BackgroundProcessManager(
+            workspace_dir=settings.workspace_dir,
+            deny_patterns=settings.deny_patterns,
+            allow_commands=settings.allow_commands,
+            ask_by_default=settings.ask_by_default,
+            max_output_chars=settings.max_output_chars,
+        )
 
     async def start(self) -> None:
         await self.mcp_runtime.start()
 
     async def stop(self) -> None:
+        self.process_manager.stop_all()
         await self.mcp_runtime.stop()
 
     def run(
@@ -205,6 +216,7 @@ class KiraClawEngine:
         selected_model = model or self.settings.model
         _ensure_provider_credentials(self.settings, selected_provider)
         run_tool_context = dict(tool_context or {})
+        run_tool_context["__process_manager__"] = self.process_manager
         spoken_messages: list[str] = []
         run_tool_context["__spoken_messages__"] = spoken_messages
         if live_result is None:

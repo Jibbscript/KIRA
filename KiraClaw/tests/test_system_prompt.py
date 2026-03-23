@@ -91,6 +91,28 @@ def test_system_prompt_marks_channel_tools_as_delivery_only() -> None:
     assert "reuse that surfaced reference before asking follow-up questions" in prompt
 
 
+def test_system_prompt_mentions_exec_and_process_guidance_when_available() -> None:
+    prompt = build_system_prompt(
+        "세나",
+        [
+            "bash",
+            "exec",
+            "process",
+            "read",
+            "write",
+            "edit",
+            "grep",
+            "glob",
+            "submit",
+        ],
+    )
+
+    assert "You have tools: read, write, edit, bash, exec, process, grep, glob, submit." in prompt
+    assert "Use bash for short synchronous shell commands" in prompt
+    assert "Use exec for shell commands that may run for a while" in prompt
+    assert "If exec returns a running session_id, use process" in prompt
+
+
 def test_system_prompt_mentions_memory_index_first_flow_when_available() -> None:
     prompt = build_system_prompt(
         "세나",
