@@ -184,6 +184,38 @@ def test_explicit_modern_home_keeps_openai_provider(tmp_path, monkeypatch) -> No
     assert settings.run_log_file == home / ".kiraclaw" / "workspaces" / "default" / "logs" / "runs.jsonl"
 
 
+def test_visible_browser_is_runtime_only_not_legacy_config(tmp_path, monkeypatch) -> None:
+    home = tmp_path / "home"
+    workspace = tmp_path / "workspace"
+    _write_legacy_state(home, workspace)
+
+    legacy_config = home / ".kira" / "config.env"
+    legacy_config.write_text(
+        legacy_config.read_text(encoding="utf-8") + '\nCHROME_VISIBLE="true"\nCHROME_MCP_PORT="45678"\n',
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.delenv("KIRACLAW_BROWSER_VISIBLE", raising=False)
+    monkeypatch.delenv("KIRACLAW_BROWSER_MCP_PORT", raising=False)
+    monkeypatch.chdir(tmp_path)
+    get_settings.cache_clear()
+
+    settings = get_settings()
+
+    assert settings.browser_enabled is True
+    assert settings.browser_visible is False
+    assert settings.browser_mcp_port == 8931
+
+    monkeypatch.setenv("KIRACLAW_BROWSER_VISIBLE", "true")
+    monkeypatch.setenv("KIRACLAW_BROWSER_MCP_PORT", "45679")
+    get_settings.cache_clear()
+    settings = get_settings()
+
+    assert settings.browser_visible is True
+    assert settings.browser_mcp_port == 45679
+
+
 def test_ensure_directories_seeds_default_skills_without_overwriting(tmp_path) -> None:
     seed_dir = tmp_path / "seed-skills"
     (seed_dir / "pptx").mkdir(parents=True)

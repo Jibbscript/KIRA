@@ -150,20 +150,6 @@ function createDaemonController({
     return path.join(workspaceDir, "files");
   }
 
-  function chromeProfileNeedsSetup(profileDir, alwaysOpen) {
-    if (alwaysOpen) {
-      return true;
-    }
-    if (!fs.existsSync(profileDir)) {
-      return true;
-    }
-    try {
-      return fs.readdirSync(profileDir).length === 0;
-    } catch {
-      return true;
-    }
-  }
-
   function resolveChromeBinary() {
     if (process.platform === "darwin") {
       const appPath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
@@ -741,20 +727,18 @@ function createDaemonController({
     }
 
     const config = parseEnvFile();
+    const wantsVisibleBrowser = parseBoolean(config.CHROME_ENABLED) && parseBoolean(config.CHROME_VISIBLE);
     const browserSpec = await ensureVisibleBrowserMcp(config);
+    let browserWarning = "";
     if (!browserSpec.ok) {
-      return {
-        success: false,
-        running: false,
-        managed: false,
-        message: browserSpec.message,
-      };
+      browserWarning = browserSpec.message || "";
+      emit("error", `${browserWarning} Falling back to internal browser MCP mode.`);
     }
 
     const launchEnvOverrides = {
-      KIRACLAW_BROWSER_VISIBLE: parseBoolean(config.CHROME_VISIBLE) ? "true" : "false",
+      KIRACLAW_BROWSER_VISIBLE: browserSpec.ok && wantsVisibleBrowser ? "true" : "false",
     };
-    if (browserSpec.port) {
+    if (browserSpec.ok && browserSpec.port) {
       launchEnvOverrides.KIRACLAW_BROWSER_MCP_PORT = String(browserSpec.port);
     }
 
@@ -809,7 +793,7 @@ function createDaemonController({
       success: true,
       running: true,
       managed: true,
-      message: "KIRA Engine started.",
+      message: browserWarning ? `KIRA Engine started. ${browserWarning}` : "KIRA Engine started.",
     };
   }
 

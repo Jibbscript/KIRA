@@ -119,6 +119,7 @@ class KiraClawSettings(BaseSettings):
     tableau_pat_name: str = ""
     tableau_pat_value: str = ""
     browser_enabled: bool = False
+    # Desktop-managed runtime override. Do not persist this as a daemon-wide mode.
     browser_visible: bool = False
     browser_mcp_port: int = 8931
     remote_mcp_servers: str = ""
@@ -317,7 +318,6 @@ class KiraClawSettings(BaseSettings):
             "atlassian_enabled": "ATLASSIAN_ENABLED",
             "tableau_enabled": "TABLEAU_ENABLED",
             "browser_enabled": "CHROME_ENABLED",
-            "browser_visible": "CHROME_VISIBLE",
             "slack_enabled": "SLACK_ENABLED",
             "telegram_enabled": "TELEGRAM_ENABLED",
             "discord_enabled": "DISCORD_ENABLED",
@@ -377,12 +377,6 @@ class KiraClawSettings(BaseSettings):
 
         if "provider" not in explicit_fields and not legacy_values.get("KIRACLAW_PROVIDER") and self.credential_file:
             object.__setattr__(self, "provider", "vertex_ai")
-
-        if "browser_mcp_port" not in explicit_fields and legacy_values.get("CHROME_MCP_PORT"):
-            try:
-                object.__setattr__(self, "browser_mcp_port", int(legacy_values["CHROME_MCP_PORT"].strip()))
-            except ValueError:
-                pass
 
     def ensure_directories(self) -> None:
         self.data_dir.mkdir(parents=True, exist_ok=True)
