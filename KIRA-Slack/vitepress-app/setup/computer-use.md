@@ -29,11 +29,12 @@ When Chrome toggle is on, Playwright uses Chrome profile.
 You can reuse already logged-in sessions without logging in each time.
 :::
 
-### 4. Always Open Profile Setup (Optional)
-- Turn **"Always open profile setup"** toggle **ON** to:
-  - Open browser every time server starts
-  - Log in to new sites or change settings
-  - For most cases, **OFF** is recommended
+### 4. Visible Browser (Optional)
+- Turn **"Visible browser"** toggle **ON** if you want Playwright automation to run in a real Chrome window
+- With this option on:
+  - Browser actions are visible on your desktop
+  - The desktop app manages a standalone Playwright MCP server
+  - Existing Chrome profile state is still reused
 
 ### 5. Save Settings
 - Click **"Save Settings"** button
@@ -42,15 +43,14 @@ You can reuse already logged-in sessions without logging in each time.
 
 When you click **"Start"** button:
 
-1. **Chrome browser opens automatically**
+1. If **Visible browser** is enabled, Chrome opens as part of browser automation
 2. **Manually log in** to required websites (e.g., company SSO, Gmail, etc.)
 3. Login info is saved to Chrome profile
 4. **Close the browser**
-5. Press **Enter key** in terminal/console
-6. Python server starts normally
+5. The engine reuses the saved profile on future runs
 
 ::: warning Initial Setup Required
-When browser opens on first server start, log in to needed sites, close browser, then press Enter for server to start.
+Use **Open Profile Setup** before browser tasks to log in with the same Chrome profile.
 Once logged in, login state persists automatically.
 :::
 
@@ -113,12 +113,11 @@ Login info from initial server start is saved to Chrome profile:
 - No re-login needed when using Computer Use
 - Cookies and session info auto-preserved
 
-### Always Open Profile Setup
+### Visible Browser
 When this option is on:
-- **Browser opens every time server starts**
-- Can add logins to new sites
-- Useful when wanting to change browser settings
-- Can re-login to sites with expired sessions
+- **Browser actions are visible while Playwright runs**
+- Useful for debugging and watching what the agent is doing
+- Can make browser automation feel slower or more intrusive than background mode
 
 ---
 

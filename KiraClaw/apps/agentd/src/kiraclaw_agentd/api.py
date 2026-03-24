@@ -445,6 +445,7 @@ def create_app() -> FastAPI:
             "slack_allowed_names": settings.slack_allowed_names,
             "desktop_app_enabled": settings.desktop_app_enabled,
             "browser_enabled": settings.browser_enabled,
+            "browser_visible": settings.browser_visible,
             "browser_profile_dir": str(settings.browser_profile_dir) if settings.browser_profile_dir else None,
             "single_gateway_per_host": settings.single_gateway_per_host,
             "session_scope": settings.session_scope,

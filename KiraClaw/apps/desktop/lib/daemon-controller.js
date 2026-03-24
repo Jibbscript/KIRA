@@ -2,6 +2,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const crypto = require("crypto");
+const net = require("net");
 const { spawn, spawnSync } = require("child_process");
 
 function createDaemonController({
@@ -16,6 +17,8 @@ function createDaemonController({
 }) {
   let daemonProcess = null;
   let daemonManagedByDesktop = false;
+  let browserMcpProcess = null;
+  let browserMcpPort = null;
   let logBuffer = [];
 
   function emit(type, message) {
@@ -137,6 +140,16 @@ function createDaemonController({
     return path.join(workspaceDir, "chrome_profile");
   }
 
+  function resolveChromeOutputDir(config) {
+    const configured = String(config.CHROME_OUTPUT_DIR || "").trim();
+    if (configured) {
+      return configured;
+    }
+    const workspaceDir = String(config.FILESYSTEM_BASE_DIR || "").trim()
+      || path.join(os.homedir(), ".kiraclaw", "workspaces", "default");
+    return path.join(workspaceDir, "files");
+  }
+
   function chromeProfileNeedsSetup(profileDir, alwaysOpen) {
     if (alwaysOpen) {
       return true;
@@ -174,6 +187,85 @@ function createDaemonController({
     }
 
     throw new Error(`Chrome profile setup is not supported on this platform yet: ${process.platform}`);
+  }
+
+  function resolveNpxBinary() {
+    const candidates = process.platform === "win32"
+      ? [
+          path.join(process.env.PROGRAMFILES || "", "nodejs", "npx.cmd"),
+          path.join(process.env["PROGRAMFILES(X86)"] || "", "nodejs", "npx.cmd"),
+          path.join(process.env.LOCALAPPDATA || "", "Programs", "nodejs", "npx.cmd"),
+          path.join(process.env.APPDATA || "", "npm", "npx.cmd"),
+        ]
+      : [
+          "/opt/homebrew/bin/npx",
+          "/usr/local/bin/npx",
+          path.join(os.homedir(), ".local", "bin", "npx"),
+          path.join(os.homedir(), ".npm-global", "bin", "npx"),
+        ];
+
+    for (const candidate of candidates) {
+      if (candidate && fs.existsSync(candidate)) {
+        return candidate;
+      }
+    }
+
+    const findResult = spawnSync(process.platform === "win32" ? "where" : "which", ["npx"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+      windowsHide: true,
+    });
+    if (findResult.status === 0) {
+      const firstPath = String(findResult.stdout || "").split(/\r?\n/).map((line) => line.trim()).find(Boolean);
+      if (firstPath) {
+        return firstPath;
+      }
+    }
+
+    return null;
+  }
+
+  function isPortReachable(port, host = "127.0.0.1", timeoutMs = 500) {
+    return new Promise((resolve) => {
+      const socket = net.createConnection({ port, host });
+      const timer = setTimeout(() => {
+        socket.destroy();
+        resolve(false);
+      }, timeoutMs);
+      socket.once("connect", () => {
+        clearTimeout(timer);
+        socket.destroy();
+        resolve(true);
+      });
+      socket.once("error", () => {
+        clearTimeout(timer);
+        socket.destroy();
+        resolve(false);
+      });
+    });
+  }
+
+  function findFreePort() {
+    return new Promise((resolve, reject) => {
+      const server = net.createServer();
+      server.unref();
+      server.once("error", reject);
+      server.listen(0, "127.0.0.1", () => {
+        const address = server.address();
+        const port = address && typeof address === "object" ? address.port : null;
+        server.close((error) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          if (!port) {
+            reject(new Error("Failed to allocate a local port."));
+            return;
+          }
+          resolve(port);
+        });
+      });
+    });
   }
 
   function resolveUvBinary() {
@@ -302,7 +394,7 @@ function createDaemonController({
     return null;
   }
 
-  async function resolveLaunchSpec() {
+  async function resolveLaunchSpec(envOverrides = {}) {
     if (!isPackaged) {
       if (!fs.existsSync(daemonBin)) {
         return {
@@ -315,7 +407,10 @@ function createDaemonController({
         command: daemonBin,
         args: [],
         cwd: appRoot,
-        env: withPythonUtf8(process.env),
+        env: withPythonUtf8({
+          ...process.env,
+          ...envOverrides,
+        }),
       };
     }
 
@@ -354,6 +449,7 @@ function createDaemonController({
       cwd: appRoot,
       env: withPythonUtf8({
         ...process.env,
+        ...envOverrides,
         APP_ENV: "production",
         UV_PROJECT_ENVIRONMENT: runtimeEnvDir,
       }),
@@ -459,6 +555,123 @@ function createDaemonController({
     }
   }
 
+  async function stopBrowserMcp() {
+    const proc = browserMcpProcess;
+    browserMcpProcess = null;
+    browserMcpPort = null;
+
+    if (!proc || proc.exitCode !== null) {
+      return;
+    }
+
+    proc.kill(process.platform === "win32" ? "SIGTERM" : "SIGINT");
+    const exited = await new Promise((resolve) => {
+      const timer = setTimeout(() => resolve(false), 3000);
+      proc.once("exit", () => {
+        clearTimeout(timer);
+        resolve(true);
+      });
+    });
+
+    if (!exited && proc.exitCode === null) {
+      if (process.platform === "win32") {
+        spawnSync("taskkill", ["/pid", String(proc.pid), "/t", "/f"], {
+          stdio: "ignore",
+          windowsHide: true,
+        });
+      } else {
+        proc.kill("SIGKILL");
+      }
+    }
+  }
+
+  async function ensureVisibleBrowserMcp(config) {
+    if (!parseBoolean(config.CHROME_ENABLED) || !parseBoolean(config.CHROME_VISIBLE)) {
+      await stopBrowserMcp();
+      return { ok: true, port: null };
+    }
+
+    if (browserMcpProcess && browserMcpProcess.exitCode === null && browserMcpPort && await isPortReachable(browserMcpPort)) {
+      return { ok: true, port: browserMcpPort };
+    }
+
+    await stopBrowserMcp();
+
+    const npxPath = resolveNpxBinary();
+    if (!npxPath) {
+      return { ok: false, message: "npx is required to run the visible browser MCP server." };
+    }
+
+    const profileDir = resolveChromeProfileDir(config);
+    const outputDir = resolveChromeOutputDir(config);
+    fs.mkdirSync(profileDir, { recursive: true });
+    fs.mkdirSync(outputDir, { recursive: true });
+
+    let port;
+    try {
+      port = await findFreePort();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return { ok: false, message: `Failed to reserve a local port for the visible browser: ${message}` };
+    }
+
+    emit("info", `Starting visible browser MCP on port ${port}...`);
+    const proc = spawn(
+      npxPath,
+      [
+        "-y",
+        "@playwright/mcp@latest",
+        "--browser",
+        "chrome",
+        "--user-data-dir",
+        profileDir,
+        "--output-dir",
+        outputDir,
+        "--port",
+        String(port),
+      ],
+      {
+        stdio: ["ignore", "pipe", "pipe"],
+        detached: process.platform !== "win32",
+      },
+    );
+
+    browserMcpProcess = proc;
+    browserMcpPort = port;
+
+    proc.stdout.on("data", (chunk) => emit("stdout", `[playwright-mcp] ${String(chunk)}`));
+    proc.stderr.on("data", (chunk) => emit("stderr", `[playwright-mcp] ${String(chunk)}`));
+    proc.on("error", (error) => emit("error", `Visible browser MCP failed to start: ${error.message}`));
+    proc.on("exit", (code, signal) => {
+      emit("info", `Visible browser MCP exited (${signal || code || 0}).`);
+      if (browserMcpProcess === proc) {
+        browserMcpProcess = null;
+        browserMcpPort = null;
+      }
+    });
+
+    const ready = await waitUntil(async () => {
+      if (!browserMcpProcess || browserMcpProcess.exitCode !== null) {
+        return false;
+      }
+      return isPortReachable(port, "127.0.0.1", 250);
+    }, { timeoutMs: 15000, intervalMs: 250 });
+
+    if (!ready) {
+      const details = latestLogSummary();
+      await stopBrowserMcp();
+      return {
+        ok: false,
+        message: details
+          ? `Visible browser MCP failed to become ready. ${details}`
+          : "Visible browser MCP failed to become ready.",
+      };
+    }
+
+    emit("info", `Visible browser MCP is ready on port ${port}.`);
+    return { ok: true, port };
+  }
+
   async function openChromeProfileSetup() {
     const config = parseEnvFile();
     if (!parseBoolean(config.CHROME_ENABLED)) {
@@ -527,8 +740,27 @@ function createDaemonController({
       }
     }
 
-    const launchSpec = await resolveLaunchSpec();
+    const config = parseEnvFile();
+    const browserSpec = await ensureVisibleBrowserMcp(config);
+    if (!browserSpec.ok) {
+      return {
+        success: false,
+        running: false,
+        managed: false,
+        message: browserSpec.message,
+      };
+    }
+
+    const launchEnvOverrides = {
+      KIRACLAW_BROWSER_VISIBLE: parseBoolean(config.CHROME_VISIBLE) ? "true" : "false",
+    };
+    if (browserSpec.port) {
+      launchEnvOverrides.KIRACLAW_BROWSER_MCP_PORT = String(browserSpec.port);
+    }
+
+    const launchSpec = await resolveLaunchSpec(launchEnvOverrides);
     if (!launchSpec.ok) {
+      await stopBrowserMcp();
       return {
         success: false,
         running: false,
@@ -555,12 +787,14 @@ function createDaemonController({
       emit("info", `KIRA Engine exited (${signal || code || 0}).`);
       daemonProcess = null;
       daemonManagedByDesktop = false;
+      void stopBrowserMcp();
     });
 
     const ready = await waitUntil(isReachable, { timeoutMs: 180000 });
     if (!ready) {
       const details = latestLogSummary();
       await stopManaged();
+      await stopBrowserMcp();
       return {
         success: false,
         running: false,
@@ -584,6 +818,7 @@ function createDaemonController({
     if (!proc || proc.exitCode !== null) {
       daemonProcess = null;
       daemonManagedByDesktop = false;
+      await stopBrowserMcp();
       return { success: true, running: false, managed: false, message: "KIRA Engine is not running." };
     }
 
@@ -623,6 +858,7 @@ function createDaemonController({
       }
     }
 
+    await stopBrowserMcp();
     return { success: true, running: false, managed: false, message: "KIRA Engine stopped." };
   }
 

@@ -123,6 +123,7 @@ function runtimeValueForField(state, field) {
     SLACK_RETRIEVE_ENABLED: String(Boolean(state.runtime.slack_retrieve_enabled)),
     SLACK_RETRIEVE_REDIRECT_URL: state.runtime.slack_retrieve_redirect_uri,
     CHROME_ENABLED: String(Boolean(state.runtime.browser_enabled)),
+    CHROME_VISIBLE: String(Boolean(state.runtime.browser_visible)),
     FILESYSTEM_BASE_DIR: state.runtime.workspace_dir,
   };
 

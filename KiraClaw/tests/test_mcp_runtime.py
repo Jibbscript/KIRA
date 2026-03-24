@@ -165,6 +165,31 @@ def test_mcp_runtime_builds_external_npm_configs(tmp_path) -> None:
     assert configs[7].wire_format == "line"
 
 
+def test_mcp_runtime_builds_visible_playwright_remote_config(tmp_path) -> None:
+    settings = KiraClawSettings(
+        data_dir=tmp_path / "data",
+        workspace_dir=tmp_path / "workspace",
+        home_mode="modern",
+        slack_enabled=False,
+        mcp_enabled=True,
+        mcp_time_enabled=False,
+        mcp_files_enabled=False,
+        mcp_scheduler_enabled=False,
+        mcp_context7_enabled=False,
+        mcp_arxiv_enabled=False,
+        mcp_youtube_info_enabled=False,
+        browser_enabled=True,
+        browser_visible=True,
+        browser_mcp_port=45678,
+    )
+
+    configs = build_mcp_server_configs(settings)
+
+    assert [config.name for config in configs] == ["playwright"]
+    assert configs[0].command[-2:] == ["mcp-remote", "http://127.0.0.1:45678/mcp"]
+    assert configs[0].wire_format == "line"
+
+
 def test_mcp_runtime_includes_external_servers_for_startup(tmp_path) -> None:
     settings = KiraClawSettings(
         data_dir=tmp_path / "data",

@@ -210,17 +210,28 @@ def _external_mcp_configs(settings: KiraClawSettings) -> list[McpServerConfig]:
         )
 
     if settings.browser_enabled and settings.browser_profile_dir is not None:
-        command, npx_env = _npx_command("@playwright/mcp@latest")
-        command.extend(["--browser", "chrome", "--user-data-dir", str(settings.browser_profile_dir)])
-        if settings.browser_output_dir is not None:
-            command.extend(["--output-dir", str(settings.browser_output_dir)])
-        configs.append(
-            McpServerConfig(
-                name="playwright",
-                command=command,
-                env=npx_env,
+        if settings.browser_visible:
+            command, npx_env = _npx_command("mcp-remote", f"http://127.0.0.1:{settings.browser_mcp_port}/mcp")
+            configs.append(
+                McpServerConfig(
+                    name="playwright",
+                    command=command,
+                    env=npx_env,
+                    wire_format="line",
+                )
             )
-        )
+        else:
+            command, npx_env = _npx_command("@playwright/mcp@latest")
+            command.extend(["--browser", "chrome", "--user-data-dir", str(settings.browser_profile_dir)])
+            if settings.browser_output_dir is not None:
+                command.extend(["--output-dir", str(settings.browser_output_dir)])
+            configs.append(
+                McpServerConfig(
+                    name="playwright",
+                    command=command,
+                    env=npx_env,
+                )
+            )
 
     for server in _parse_remote_mcp_servers(settings.remote_mcp_servers):
         command, npx_env = _npx_command("mcp-remote", server["url"])
