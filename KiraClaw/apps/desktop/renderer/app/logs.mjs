@@ -1,6 +1,8 @@
 import { byId, escapeHtml, setText } from "./dom.mjs";
 import { getDateLocale, t } from "./i18n.mjs";
 
+let selectedDaemonEventId = "";
+
 function formatTime(value) {
   const text = String(value || "").trim();
   if (!text) {
@@ -289,31 +291,93 @@ function daemonResourceCard(row) {
 }
 
 function daemonEventCard(row) {
+  const eventId = String(row.event_id || "").trim();
   const metaParts = [
     row.type || "",
     row.resource_kind || "",
     row.resource_id || "",
     formatTime(row.created_at),
   ].filter(Boolean);
-  const payload = formatToolPayload(row.payload);
-  const hasPayload = payload !== String(t("common.none"));
+  const preview = summarizeEventPayload(row.payload);
+  const selected = eventId && eventId === selectedDaemonEventId;
 
   return `
-    <article class="simple-item daemon-event-card">
+    <button
+      type="button"
+      class="simple-item daemon-event-card daemon-event-item ${selected ? "selected" : ""}"
+      data-event-id="${escapeHtml(eventId)}"
+    >
       <div class="daemon-event-head">
-        <strong>${escapeHtml(row.message || row.type || t("common.none"))}</strong>
+        <div class="daemon-event-title-block">
+          <strong>${escapeHtml(row.message || row.type || t("common.none"))}</strong>
+          <p class="daemon-event-meta">${escapeHtml(metaParts.join(" · "))}</p>
+          ${preview ? `<p class="daemon-event-preview">${escapeHtml(preview)}</p>` : ""}
+        </div>
         <span class="status-chip ${stateClassForStatus(row.level)}">${escapeHtml(row.level || "info")}</span>
       </div>
-      <p class="daemon-event-meta">${escapeHtml(metaParts.join(" · "))}</p>
-      ${hasPayload ? `
-        <details class="details-card daemon-event-details" data-event-id="${escapeHtml(row.event_id || "")}">
-          <summary>${escapeHtml(t("common.viewDetails"))}</summary>
-          <div class="details-body">
-            <pre class="run-trace-payload daemon-event-payload">${escapeHtml(payload)}</pre>
-          </div>
-        </details>
-      ` : ""}
-    </article>
+    </button>
+  `;
+}
+
+function summarizeEventPayload(value) {
+  if (value === null || value === undefined || value === "") {
+    return "";
+  }
+  if (typeof value === "string") {
+    const text = value.replace(/\s+/g, " ").trim();
+    if (!text) {
+      return "";
+    }
+    return text.length > 160 ? `${text.slice(0, 157)}...` : text;
+  }
+  if (typeof value === "object") {
+    return summarizeResourceData(value);
+  }
+  return String(value);
+}
+
+function renderDaemonEventInspector(row) {
+  const inspector = byId("daemon-event-inspector");
+  if (!inspector) {
+    return;
+  }
+
+  if (!row) {
+    inspector.innerHTML = `
+      <div class="diagnostics-event-empty">${escapeHtml(t("diagnostics.selectEvent"))}</div>
+    `;
+    return;
+  }
+
+  const payload = formatToolPayload(row.payload);
+  const resourceLabel = [row.resource_kind || "", row.resource_id || ""].filter(Boolean).join(" / ");
+  const metadata = [
+    { label: t("diagnostics.eventId"), value: row.event_id || t("common.none") },
+    { label: t("diagnostics.eventType"), value: row.type || t("common.none") },
+    { label: t("diagnostics.eventTime"), value: formatTime(row.created_at) || t("common.none") },
+    { label: t("diagnostics.eventResource"), value: resourceLabel || t("common.none") },
+  ];
+
+  inspector.innerHTML = `
+    <div class="diagnostics-event-inspector-head">
+      <div class="diagnostics-event-inspector-title">
+        <div class="eyebrow">${escapeHtml(t("diagnostics.eventDetails"))}</div>
+        <strong>${escapeHtml(row.message || row.type || t("common.none"))}</strong>
+      </div>
+      <span class="status-chip ${stateClassForStatus(row.level)}">${escapeHtml(row.level || "info")}</span>
+    </div>
+    <div class="diagnostics-meta-grid">
+      ${metadata.map((item) => `
+        <div class="diagnostics-meta-item">
+          <div class="diagnostics-meta-label">${escapeHtml(item.label)}</div>
+          <div class="diagnostics-meta-value">${escapeHtml(item.value)}</div>
+        </div>
+      `).join("")}
+    </div>
+    <div class="diagnostics-event-section-block">
+      <div class="diagnostics-meta-label">${escapeHtml(t("diagnostics.eventPayload"))}</div>
+      <pre class="run-trace-payload daemon-event-payload">${escapeHtml(payload)}</pre>
+    </div>
   `;
 }
 
@@ -413,12 +477,6 @@ export function renderDaemonPlaneState(state) {
 
   const eventList = byId("daemon-event-list");
   if (eventList) {
-    const previouslyOpenEventIds = new Set(
-      Array.from(eventList.querySelectorAll(".daemon-event-details[open][data-event-id]"))
-        .map((element) => element.dataset.eventId || "")
-        .filter(Boolean),
-    );
-
     if (state.daemonEventError) {
       eventList.innerHTML = `
         <article class="simple-item">
@@ -426,6 +484,8 @@ export function renderDaemonPlaneState(state) {
           <p>${escapeHtml(state.daemonEventError)}</p>
         </article>
       `;
+      selectedDaemonEventId = "";
+      renderDaemonEventInspector(null);
       setText(
         byId("daemon-event-status"),
         t("logs.daemonEventsLoadFailed", { message: state.daemonEventError }),
@@ -437,6 +497,8 @@ export function renderDaemonPlaneState(state) {
           <p>${escapeHtml(t("logs.noDaemonEventsBody"))}</p>
         </article>
       `;
+      selectedDaemonEventId = "";
+      renderDaemonEventInspector(null);
       setText(
         byId("daemon-event-status"),
         state.daemonEventFile
@@ -444,12 +506,12 @@ export function renderDaemonPlaneState(state) {
           : t("logs.noDaemonEvents"),
       );
     } else {
+      const selectedEvent =
+        state.daemonEvents.find((row) => String(row.event_id || "").trim() === selectedDaemonEventId)
+        || state.daemonEvents[0];
+      selectedDaemonEventId = String(selectedEvent?.event_id || "").trim();
       eventList.innerHTML = state.daemonEvents.map(daemonEventCard).join("");
-      for (const details of eventList.querySelectorAll(".daemon-event-details[data-event-id]")) {
-        if (previouslyOpenEventIds.has(details.dataset.eventId || "")) {
-          details.open = true;
-        }
-      }
+      renderDaemonEventInspector(selectedEvent || null);
       const suffix = state.daemonEventFile ? ` · ${state.daemonEventFile}` : "";
       setText(
         byId("daemon-event-status"),
@@ -478,6 +540,17 @@ export function bindRunLogActions({ state, onReload, onOpenPath }) {
 
 export function bindDaemonPlaneActions({ state, onReload, onOpenPath }) {
   byId("reload-daemon-plane")?.addEventListener("click", onReload);
+  byId("daemon-event-list")?.addEventListener("click", (event) => {
+    if (!(event.target instanceof Element)) {
+      return;
+    }
+    const card = event.target.closest(".daemon-event-item[data-event-id]");
+    if (!(card instanceof HTMLElement)) {
+      return;
+    }
+    selectedDaemonEventId = String(card.dataset.eventId || "").trim();
+    renderDaemonPlaneState(state);
+  });
   byId("open-daemon-event-file")?.addEventListener("click", () => {
     onOpenPath(state.daemonEventFile);
   });

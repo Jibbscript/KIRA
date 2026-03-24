@@ -317,6 +317,16 @@ select {
   border-color: rgba(var(--accent-rgb), 0.34);
 }
 
+.status-chip.info {
+  color: var(--muted-strong);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.status-chip.warning {
+  color: var(--accent-bright);
+  border-color: rgba(var(--accent-rgb), 0.26);
+}
+
 .content {
   min-width: 0;
   overflow: auto;
@@ -1651,6 +1661,38 @@ button:disabled {
   gap: 8px;
 }
 
+.diagnostics-resource-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-2);
+}
+
+.diagnostics-event-section {
+  min-height: 0;
+}
+
+.diagnostics-event-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
+  gap: var(--space-3);
+  max-height: min(62vh, 720px);
+  min-height: 360px;
+}
+
+.diagnostics-event-feed,
+.diagnostics-event-inspector {
+  min-height: 0;
+}
+
+.diagnostics-event-feed {
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.diagnostics-event-list {
+  min-height: 100%;
+}
+
 .daemon-resource-head,
 .daemon-event-head {
   display: flex;
@@ -1660,6 +1702,11 @@ button:disabled {
 }
 
 .daemon-resource-title-block {
+  min-width: 0;
+  flex: 1;
+}
+
+.daemon-event-title-block {
   min-width: 0;
   flex: 1;
 }
@@ -1684,13 +1731,119 @@ button:disabled {
   color: var(--text);
 }
 
-.daemon-event-details {
+.daemon-event-item {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  appearance: none;
+  transition: border-color 140ms ease, background-color 140ms ease, transform 140ms ease;
+}
+
+.daemon-event-item:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(18, 24, 34, 0.78);
+}
+
+.daemon-event-item.selected {
+  border-color: rgba(var(--accent-rgb), 0.34);
+  background:
+    linear-gradient(180deg, rgba(var(--accent-rgb), 0.08), rgba(255, 255, 255, 0.02)),
+    rgba(14, 20, 30, 0.84);
+  box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.1);
+}
+
+.daemon-event-preview {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--text);
+  opacity: 0.86;
+  overflow-wrap: anywhere;
+}
+
+.diagnostics-event-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  overflow: auto;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.015)),
+    rgba(8, 10, 14, 0.96);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.diagnostics-event-inspector-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.diagnostics-event-inspector-title {
+  min-width: 0;
+  flex: 1;
+}
+
+.diagnostics-event-inspector-title strong {
+  display: block;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.diagnostics-event-inspector-title .eyebrow {
+  margin-bottom: 6px;
+}
+
+.diagnostics-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-2);
+}
+
+.diagnostics-meta-item {
+  padding: 10px 12px;
   border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(0, 0, 0, 0.26);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.diagnostics-meta-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.diagnostics-meta-value {
+  margin-top: 6px;
+  font-family: "SFMono-Regular", "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.diagnostics-event-section-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.diagnostics-event-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  text-align: center;
+  color: var(--muted);
 }
 
 .daemon-event-payload {
-  margin-bottom: 0;
+  margin: 0;
+  padding-left: 0;
+  white-space: pre-wrap;
 }
 
 .run-log-details {
@@ -1829,6 +1982,21 @@ button:disabled {
 
 .details-body {
   padding: 0 var(--space-4) var(--space-4);
+}
+
+@media (max-width: 960px) {
+  .diagnostics-event-layout {
+    grid-template-columns: 1fr;
+    max-height: none;
+  }
+
+  .diagnostics-event-feed {
+    max-height: 42vh;
+  }
+
+  .diagnostics-event-inspector {
+    min-height: 260px;
+  }
 }
 
 @keyframes halo-pulse {

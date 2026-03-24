@@ -334,17 +334,16 @@
                   <span class="toggle-slider"></span>
                 </label>
               </div>
-              <div class="form-grid external-mcp-fields" data-external-mcp-fields="CHROME_ENABLED" hidden>
-                <div class="toggle-field field full">
-                  <div class="toggle-copy">
-                    <span class="toggle-title" data-i18n="mcp.browserVisibleLabel">Visible browser</span>
-                    <span class="toggle-help" data-i18n="mcp.browserVisibleCopy">Launch Playwright through a visible Chrome window managed by the desktop app.</span>
-                  </div>
-                  <label class="toggle-switch">
-                    <input type="checkbox" id="CHROME_VISIBLE" />
-                    <span class="toggle-slider"></span>
-                  </label>
+              <div class="toggle-field external-mcp-fields" data-external-mcp-fields="CHROME_ENABLED" hidden>
+                <div class="toggle-copy">
+                  <span class="toggle-title" data-i18n="mcp.browserVisibleLabel">Visible</span>
                 </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="CHROME_VISIBLE" />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div class="form-grid external-mcp-fields" data-external-mcp-fields="CHROME_ENABLED" hidden>
                 <div class="field full browser-setup-actions">
                   <button id="open-browser-profile-setup" class="ghost" type="button" data-i18n="common.openProfileSetup">Open Profile Setup</button>
                   <p class="section-copy" data-i18n="mcp.browserSetupCopy">Use this before browser MCP tasks to sign in with the same Chrome profile.</p>
@@ -623,16 +622,25 @@
               <h3 data-i18n="logs.daemonResources">Daemon Resources</h3>
               <div id="daemon-resource-count" class="status-chip online">0</div>
             </div>
-            <div id="daemon-resource-list" class="simple-list"></div>
+            <div id="daemon-resource-list" class="simple-list diagnostics-resource-list"></div>
             <div id="daemon-resource-status" class="status-text" data-i18n="logs.resourcesLoading">Loading daemon resources...</div>
           </section>
 
-          <section class="settings-section">
+          <section class="settings-section diagnostics-event-section">
             <div class="card-head">
               <h3 data-i18n="logs.daemonEvents">Recent Daemon Events</h3>
               <div id="daemon-event-count" class="status-chip online">0</div>
             </div>
-            <div id="daemon-event-list" class="simple-list"></div>
+            <div class="diagnostics-event-layout">
+              <div class="diagnostics-event-feed">
+                <div id="daemon-event-list" class="simple-list diagnostics-event-list"></div>
+              </div>
+              <aside id="daemon-event-inspector" class="simple-item diagnostics-event-inspector">
+                <div class="diagnostics-event-empty" data-i18n="diagnostics.selectEvent">
+                  Select a daemon event to inspect its details.
+                </div>
+              </aside>
+            </div>
             <div id="daemon-event-status" class="status-text" data-i18n="logs.eventsLoading">Loading daemon events...</div>
           </section>
 
