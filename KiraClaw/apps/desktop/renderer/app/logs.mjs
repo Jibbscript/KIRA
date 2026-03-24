@@ -306,7 +306,7 @@ function daemonEventCard(row) {
       </div>
       <p class="daemon-event-meta">${escapeHtml(metaParts.join(" · "))}</p>
       ${hasPayload ? `
-        <details class="details-card daemon-event-details">
+        <details class="details-card daemon-event-details" data-event-id="${escapeHtml(row.event_id || "")}">
           <summary>${escapeHtml(t("common.viewDetails"))}</summary>
           <div class="details-body">
             <pre class="run-trace-payload daemon-event-payload">${escapeHtml(payload)}</pre>
@@ -413,6 +413,12 @@ export function renderDaemonPlaneState(state) {
 
   const eventList = byId("daemon-event-list");
   if (eventList) {
+    const previouslyOpenEventIds = new Set(
+      Array.from(eventList.querySelectorAll(".daemon-event-details[open][data-event-id]"))
+        .map((element) => element.dataset.eventId || "")
+        .filter(Boolean),
+    );
+
     if (state.daemonEventError) {
       eventList.innerHTML = `
         <article class="simple-item">
@@ -439,6 +445,11 @@ export function renderDaemonPlaneState(state) {
       );
     } else {
       eventList.innerHTML = state.daemonEvents.map(daemonEventCard).join("");
+      for (const details of eventList.querySelectorAll(".daemon-event-details[data-event-id]")) {
+        if (previouslyOpenEventIds.has(details.dataset.eventId || "")) {
+          details.open = true;
+        }
+      }
       const suffix = state.daemonEventFile ? ` · ${state.daemonEventFile}` : "";
       setText(
         byId("daemon-event-status"),
