@@ -14,6 +14,8 @@ from kiraclaw_agentd.session_manager import RunRecord
 from kiraclaw_agentd.settings import get_settings
 from kiraclaw_agentd.slack_retrieve_oauth import SlackRetrieveOAuthResult
 
+_LOOPBACK_CLIENT = ("127.0.0.1", 50000)
+
 
 def test_runs_endpoint_returns_serializable_payload(monkeypatch) -> None:
     app = create_app()
@@ -36,7 +38,7 @@ def test_runs_endpoint_returns_serializable_payload(monkeypatch) -> None:
 
     monkeypatch.setattr(app.state.session_manager, "run", fake_run)
 
-    with TestClient(app) as client:
+    with TestClient(app, client=_LOOPBACK_CLIENT) as client:
         response = client.post(
             "/v1/runs",
             json={
@@ -84,7 +86,7 @@ def test_slack_retrieve_oauth_flow_persists_token(tmp_path: Path, monkeypatch) -
 
     monkeypatch.setattr("kiraclaw_agentd.api.exchange_slack_user_token", fake_exchange)
 
-    with TestClient(app) as client:
+    with TestClient(app, client=_LOOPBACK_CLIENT) as client:
         start_response = client.post(
             "/v1/oauth/slack-retrieve/start",
             json={
@@ -134,7 +136,7 @@ def test_run_logs_endpoint_includes_live_records(tmp_path: Path, monkeypatch) ->
         )
     )
 
-    with TestClient(app) as client:
+    with TestClient(app, client=_LOOPBACK_CLIENT) as client:
         response = client.get("/v1/run-logs")
 
     assert response.status_code == 200
@@ -153,7 +155,7 @@ def test_desktop_messages_endpoint_drains_inbox(tmp_path: Path, monkeypatch) -> 
     app.router.on_startup.clear()
     app.router.on_shutdown.clear()
 
-    with TestClient(app) as client:
+    with TestClient(app, client=_LOOPBACK_CLIENT) as client:
         import asyncio
 
         asyncio.run(
@@ -189,7 +191,7 @@ def test_resources_endpoint_returns_gateway_and_channels(tmp_path: Path, monkeyp
     app.router.on_startup.clear()
     app.router.on_shutdown.clear()
 
-    with TestClient(app) as client:
+    with TestClient(app, client=_LOOPBACK_CLIENT) as client:
         response = client.get("/v1/resources")
 
     assert response.status_code == 200
@@ -212,7 +214,7 @@ def test_runtime_endpoint_includes_response_trace_setting(tmp_path: Path, monkey
     app.router.on_startup.clear()
     app.router.on_shutdown.clear()
 
-    with TestClient(app) as client:
+    with TestClient(app, client=_LOOPBACK_CLIENT) as client:
         response = client.get("/v1/runtime")
 
     assert response.status_code == 200
@@ -228,7 +230,7 @@ def test_daemon_events_endpoint_returns_resource_events(tmp_path: Path, monkeypa
     app.router.on_startup.clear()
     app.router.on_shutdown.clear()
 
-    with TestClient(app) as client:
+    with TestClient(app, client=_LOOPBACK_CLIENT) as client:
         client.get("/v1/resources")
         response = client.get("/v1/daemon-events", params={"resource_kind": "gateway"})
 
@@ -250,7 +252,7 @@ def test_resources_endpoint_refreshes_background_process_status(tmp_path: Path, 
 
     command = f'"{sys.executable}" -c "import time; print(\'done\'); time.sleep(0.1)"'
 
-    with TestClient(app) as client:
+    with TestClient(app, client=_LOOPBACK_CLIENT) as client:
         session = app.state.engine.process_manager.start(
             command=command,
             owner_session_id="desktop:test",
@@ -263,3 +265,50 @@ def test_resources_endpoint_refreshes_background_process_status(tmp_path: Path, 
     resources = {(row["kind"], row["id"]): row for row in body["resources"]}
     process_resource = resources[("process", session.session_id)]
     assert process_resource["state"] == "completed"
+
+
+def test_v1_endpoints_reject_non_loopback_clients(monkeypatch) -> None:
+    app = create_app()
+    app.router.on_startup.clear()
+    app.router.on_shutdown.clear()
+
+    with TestClient(app, client=("203.0.113.10", 50000)) as client:
+        response = client.get("/v1/runtime")
+
+    assert response.status_code == 403
+    assert response.json() == {
+        "detail": "KiraClaw agentd only accepts local requests for this endpoint."
+    }
+
+
+def test_slack_oauth_callback_allows_non_loopback_clients(tmp_path: Path, monkeypatch) -> None:
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    get_settings.cache_clear()
+
+    app = create_app()
+    app.router.on_startup.clear()
+    app.router.on_shutdown.clear()
+
+    app.state.slack_retrieve_oauth["pending_state"] = "state-token"
+    app.state.slack_retrieve_oauth["client_id"] = "client-id"
+    app.state.slack_retrieve_oauth["client_secret"] = "client-secret"
+    app.state.slack_retrieve_oauth["redirect_uri"] = "https://example.ngrok-free.dev/v1/oauth/slack-retrieve/callback"
+
+    async def fake_exchange(**_: object) -> SlackRetrieveOAuthResult:
+        return SlackRetrieveOAuthResult(
+            access_token="xoxp-test-token",
+            scope="search:read",
+            token_type="user",
+            authed_user_id="U123",
+        )
+
+    monkeypatch.setattr("kiraclaw_agentd.api.exchange_slack_user_token", fake_exchange)
+
+    with TestClient(app, client=("203.0.113.10", 50000)) as client:
+        response = client.get(
+            "/v1/oauth/slack-retrieve/callback",
+            params={"code": "oauth-code", "state": "state-token"},
+        )
+
+    assert response.status_code == 200

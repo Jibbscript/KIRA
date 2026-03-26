@@ -227,7 +227,55 @@ def test_slack_inflight_status_query_is_answered_without_queueing(tmp_path) -> N
     asyncio.run(scenario())
 
 
-def test_slack_run_for_event_emits_heartbeat_before_final_reply(tmp_path) -> None:
+def test_slack_inflight_group_queue_next_is_silent_and_still_queues(tmp_path) -> None:
+    async def scenario() -> None:
+        settings = KiraClawSettings(
+            data_dir=tmp_path / "data",
+            workspace_dir=tmp_path / "workspace",
+            home_mode="modern",
+            slack_enabled=False,
+        )
+        session_manager = _FakeSessionManager()
+        session_manager.has_active_run = lambda session_id: True  # type: ignore[attr-defined]
+        session_manager.build_observer_snapshot = lambda session_id: {  # type: ignore[attr-defined]
+            "session_id": session_id,
+            "state": "running",
+            "prompt": "작업 중",
+            "elapsed_seconds": 5,
+            "recent_tool_events": [],
+            "active_processes": [],
+        }
+
+        class _QueueOnlyObserver:
+            def classify_inflight(self, prompt: str, snapshot: dict, inbound=None) -> object:
+                from kiraclaw_agentd.observer_service import ObserverDecision
+
+                return ObserverDecision("queue_next", "")
+
+        gateway = SlackGateway(session_manager, settings, observer_service=_QueueOnlyObserver())
+        client = _FakeSlackClient()
+
+        handled = await gateway._maybe_handle_inflight_event(
+            session_id="slack:C1:main",
+            prompt="그리고 이것도 봐줘",
+            channel="C1",
+            reply_thread_ts="111.222",
+            client=client,
+            inbound=InflightMessageContext(
+                source="slack-group",
+                mention=False,
+                is_private=False,
+                user_name="Jiho Jeon",
+            ),
+        )
+
+        assert handled is False
+        assert client.sent_messages == []
+
+    asyncio.run(scenario())
+
+
+def test_slack_run_for_event_emits_heartbeat_before_final_reply_when_explicitly_mentioned(tmp_path) -> None:
     class _SlowSessionManager(_FakeSessionManager):
         def __init__(self) -> None:
             super().__init__()
@@ -246,6 +294,8 @@ def test_slack_run_for_event_emits_heartbeat_before_final_reply(tmp_path) -> Non
                 "elapsed_seconds": 12,
                 "recent_tool_events": [{"phase": "start", "name": "browser_navigate"}],
                 "active_processes": [],
+                "run_mention": True,
+                "run_is_private": False,
             }
 
         async def run(self, **kwargs) -> RunRecord:
@@ -286,7 +336,7 @@ def test_slack_run_for_event_emits_heartbeat_before_final_reply(tmp_path) -> Non
             user="U1",
             user_name="Jiho Jeon",
             prompt="hello",
-            inbound=InflightMessageContext(source="slack-group", mention=False, is_private=False, user_name="Jiho Jeon"),
+            inbound=InflightMessageContext(source="slack-group", mention=True, is_private=False, user_name="Jiho Jeon"),
             client=client,
         )
 

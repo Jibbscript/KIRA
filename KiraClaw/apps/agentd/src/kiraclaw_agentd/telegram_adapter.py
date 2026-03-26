@@ -21,7 +21,8 @@ from kiraclaw_agentd.settings import KiraClawSettings
 from kiraclaw_agentd.tool_event_summary import append_response_trace, build_terminal_fallback_response
 
 logger = logging.getLogger(__name__)
-_CHANNEL_DEBOUNCE_SECONDS = 5.0
+_PRIVATE_CHANNEL_DEBOUNCE_SECONDS = 5.0
+_GROUP_CHANNEL_DEBOUNCE_SECONDS = 8.0
 
 
 @dataclass
@@ -325,11 +326,20 @@ class TelegramGateway:
         settings: KiraClawSettings,
         *,
         observer_service: ObserverService | None = None,
-        debounce_seconds: float = _CHANNEL_DEBOUNCE_SECONDS,
+        debounce_seconds: float | None = None,
+        group_debounce_seconds: float | None = None,
     ) -> None:
         self.session_manager = session_manager
         self.settings = settings
         self.observer_service = observer_service
+        self._private_debounce_seconds = (
+            _PRIVATE_CHANNEL_DEBOUNCE_SECONDS if debounce_seconds is None else float(debounce_seconds)
+        )
+        self._group_debounce_seconds = (
+            _GROUP_CHANNEL_DEBOUNCE_SECONDS
+            if group_debounce_seconds is None and debounce_seconds is None
+            else self._private_debounce_seconds if group_debounce_seconds is None else float(group_debounce_seconds)
+        )
         self.state: str = "not_configured"
         self.last_error: str | None = None
         self.identity: dict[str, str | int] = {}
@@ -337,7 +347,7 @@ class TelegramGateway:
         self._session: aiohttp.ClientSession | None = None
         self._update_offset: int | None = None
         self._debouncer = KeyedDebouncer[_BufferedTelegramMessage](
-            delay_seconds=debounce_seconds,
+            delay_seconds=self._private_debounce_seconds,
             on_flush=self._flush_debounced_messages,
             label="telegram",
         )
@@ -484,7 +494,7 @@ class TelegramGateway:
             inbound=_build_inflight_context(message, user_name=user_name, mention=mention),
         ):
             return
-        await self._debouncer.enqueue(
+        await self._debouncer.enqueue_with_delay(
             _debounce_key_for_message(session_id, message),
             _BufferedTelegramMessage(
                 message=message,
@@ -494,7 +504,11 @@ class TelegramGateway:
                 prompt=prompt,
                 inbound=_build_inflight_context(message, user_name=user_name, mention=mention),
             ),
+            delay_seconds=self._debounce_seconds_for_message(message),
         )
+
+    def _debounce_seconds_for_message(self, message: dict[str, Any]) -> float:
+        return self._private_debounce_seconds if _is_private_chat(message) else self._group_debounce_seconds
 
     async def _flush_debounced_messages(self, items: list[_BufferedTelegramMessage]) -> None:
         last = items[-1]

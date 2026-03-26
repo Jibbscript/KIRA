@@ -40,6 +40,10 @@ def _snapshot_signature(snapshot: dict[str, Any]) -> str:
     return json.dumps(payload, ensure_ascii=False, sort_keys=True)
 
 
+def _should_emit_heartbeat(snapshot: dict[str, Any]) -> bool:
+    return bool(snapshot.get("run_is_private") or snapshot.get("run_mention"))
+
+
 async def maybe_route_inflight_message(
     session_manager: Any,
     observer_service: ObserverService | None,
@@ -88,6 +92,9 @@ async def run_heartbeat_loop(
     while not run_task.done():
         snapshot = build_snapshot(session_id)
         if snapshot:
+            if not _should_emit_heartbeat(snapshot):
+                await asyncio.sleep(max(1.0, float(interval_seconds)))
+                continue
             signature = _snapshot_signature(snapshot)
             if signature == last_signature:
                 await asyncio.sleep(max(1.0, float(interval_seconds)))

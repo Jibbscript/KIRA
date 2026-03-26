@@ -26,7 +26,8 @@ logger = logging.getLogger(__name__)
 _APP_MENTION_RE = re.compile(r"<@[^>]+>")
 _USER_MENTION_RE = re.compile(r"<@([A-Z0-9]+)>")
 _CHANNEL_MENTION_RE = re.compile(r"<#([CDG][A-Z0-9]+)(?:\|([^>]+))?>")
-_CHANNEL_DEBOUNCE_SECONDS = 5.0
+_PRIVATE_CHANNEL_DEBOUNCE_SECONDS = 5.0
+_GROUP_CHANNEL_DEBOUNCE_SECONDS = 8.0
 _SLACK_HISTORY_LIMIT = 20
 
 
@@ -245,11 +246,20 @@ class SlackGateway:
         settings: KiraClawSettings,
         *,
         observer_service: ObserverService | None = None,
-        debounce_seconds: float = _CHANNEL_DEBOUNCE_SECONDS,
+        debounce_seconds: float | None = None,
+        group_debounce_seconds: float | None = None,
     ) -> None:
         self.session_manager = session_manager
         self.settings = settings
         self.observer_service = observer_service
+        self._private_debounce_seconds = (
+            _PRIVATE_CHANNEL_DEBOUNCE_SECONDS if debounce_seconds is None else float(debounce_seconds)
+        )
+        self._group_debounce_seconds = (
+            _GROUP_CHANNEL_DEBOUNCE_SECONDS
+            if group_debounce_seconds is None and debounce_seconds is None
+            else self._private_debounce_seconds if group_debounce_seconds is None else float(group_debounce_seconds)
+        )
         self.app: AsyncApp | None = None
         self.handler: AsyncSocketModeHandler | None = None
         self._runner_task: asyncio.Task[None] | None = None
@@ -261,7 +271,7 @@ class SlackGateway:
         self._retrieve_client: AsyncWebClient | None = None
         self.socket_mode_validated: bool = False
         self._debouncer = KeyedDebouncer[_BufferedSlackEvent](
-            delay_seconds=debounce_seconds,
+            delay_seconds=self._private_debounce_seconds,
             on_flush=self._flush_debounced_events,
             label="slack",
         )
@@ -481,7 +491,7 @@ class SlackGateway:
         ):
             return
 
-        await self._debouncer.enqueue(
+        await self._debouncer.enqueue_with_delay(
             _debounce_key_for_event(session_id, event, user),
             _BufferedSlackEvent(
                 event=event,
@@ -495,7 +505,11 @@ class SlackGateway:
                 inbound=_build_inflight_context(event, user_name=user_name, mention=mention),
                 client=client,
             ),
+            delay_seconds=self._debounce_seconds_for_event(event),
         )
+
+    def _debounce_seconds_for_event(self, event: dict[str, Any]) -> float:
+        return self._private_debounce_seconds if _is_dm(event) else self._group_debounce_seconds
 
     async def _flush_debounced_events(self, items: list[_BufferedSlackEvent]) -> None:
         last = items[-1]

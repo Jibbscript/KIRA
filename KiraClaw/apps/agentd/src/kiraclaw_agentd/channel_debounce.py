@@ -27,7 +27,11 @@ class KeyedDebouncer(Generic[T]):
         self._timers: dict[str, asyncio.Task[None]] = {}
 
     async def enqueue(self, key: str, item: T) -> None:
-        if self.delay_seconds <= 0:
+        await self.enqueue_with_delay(key, item, delay_seconds=self.delay_seconds)
+
+    async def enqueue_with_delay(self, key: str, item: T, *, delay_seconds: float | None = None) -> None:
+        effective_delay = self.delay_seconds if delay_seconds is None else max(0.0, float(delay_seconds))
+        if effective_delay <= 0:
             await self._on_flush([item])
             return
 
@@ -35,7 +39,10 @@ class KeyedDebouncer(Generic[T]):
         timer = self._timers.get(key)
         if timer is not None:
             timer.cancel()
-        self._timers[key] = asyncio.create_task(self._delayed_flush(key), name=f"{self._label}-debounce:{key}")
+        self._timers[key] = asyncio.create_task(
+            self._delayed_flush(key, effective_delay),
+            name=f"{self._label}-debounce:{key}",
+        )
 
     async def stop(self) -> None:
         timers = list(self._timers.values())
@@ -49,9 +56,9 @@ class KeyedDebouncer(Generic[T]):
             except asyncio.CancelledError:
                 pass
 
-    async def _delayed_flush(self, key: str) -> None:
+    async def _delayed_flush(self, key: str, delay_seconds: float) -> None:
         try:
-            await asyncio.sleep(self.delay_seconds)
+            await asyncio.sleep(delay_seconds)
             items = self._pending.pop(key, [])
             self._timers.pop(key, None)
             if items:

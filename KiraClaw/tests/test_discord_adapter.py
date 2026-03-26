@@ -280,6 +280,79 @@ def test_discord_inflight_status_query_is_answered_without_queueing(tmp_path) ->
     asyncio.run(scenario())
 
 
+def test_discord_inflight_group_queue_next_is_silent_and_still_queues(tmp_path) -> None:
+    async def scenario() -> None:
+        settings = KiraClawSettings(
+            data_dir=tmp_path / "data",
+            workspace_dir=tmp_path / "workspace",
+            home_mode="modern",
+            slack_enabled=False,
+            discord_enabled=False,
+        )
+        session_manager = _FakeSessionManager()
+        session_manager.has_active_run = lambda session_id: True  # type: ignore[attr-defined]
+        session_manager.build_observer_snapshot = lambda session_id: {  # type: ignore[attr-defined]
+            "session_id": session_id,
+            "source": "discord-group",
+            "state": "running",
+            "prompt": "작업 중",
+            "elapsed_seconds": 5,
+            "recent_tool_events": [],
+            "active_processes": [],
+            "run_mention": False,
+            "run_is_private": False,
+        }
+
+        class _QueueOnlyObserver:
+            def classify_inflight(self, prompt: str, snapshot: dict, inbound=None) -> object:
+                from kiraclaw_agentd.observer_service import ObserverDecision
+
+                return ObserverDecision("queue_next", "")
+
+        gateway = DiscordGateway(session_manager, settings, observer_service=_QueueOnlyObserver())
+        sent: list[dict] = []
+
+        async def fake_send(channel_id, text, reply_to_message_id=None):
+            sent.append({"channel_id": channel_id, "text": text, "reply_to_message_id": reply_to_message_id})
+
+        gateway.send_message = fake_send  # type: ignore[method-assign]
+
+        handled = await gateway._maybe_handle_inflight_message(
+            session_id="discord:1:main",
+            prompt="그리고 이것도 봐줘",
+            channel_id=1,
+            reply_to_message_id=77,
+            inbound=InflightMessageContext(
+                source="discord-group",
+                mention=False,
+                is_private=False,
+                user_name="Jiho",
+            ),
+        )
+
+        assert handled is False
+        assert sent == []
+
+    asyncio.run(scenario())
+
+
+def test_discord_group_debounce_is_longer_than_private(tmp_path) -> None:
+    settings = KiraClawSettings(
+        data_dir=tmp_path / "data",
+        workspace_dir=tmp_path / "workspace",
+        home_mode="modern",
+        slack_enabled=False,
+        discord_enabled=False,
+    )
+    gateway = DiscordGateway(_FakeSessionManager(), settings)
+
+    dm = _FakeMessage(channel_id=1, message_id=1, content="hello", author=_FakeUser(user_id=10, name="jiho"))
+    group = _FakeMessage(channel_id=2, message_id=2, content="hello", author=_FakeUser(user_id=10, name="jiho"), guild=object())
+
+    assert gateway._debounce_seconds_for_message(dm) == 5.0
+    assert gateway._debounce_seconds_for_message(group) == 8.0
+
+
 def test_discord_run_for_group_message_includes_recent_channel_history(tmp_path) -> None:
     async def scenario() -> None:
         settings = KiraClawSettings(

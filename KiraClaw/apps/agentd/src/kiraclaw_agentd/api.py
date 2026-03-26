@@ -6,9 +6,9 @@ import os
 import signal
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from kiraclaw_agentd.channel_delivery import ChannelDelivery
 from kiraclaw_agentd.daemon_plane import DaemonPlane
@@ -278,6 +278,21 @@ def create_app() -> FastAPI:
         "redirect_uri": redirect_uri,
         "result": _oauth_result("idle", "Slack Retrieve OAuth has not started yet."),
     }
+
+    loopback_hosts = {"127.0.0.1", "::1", "localhost"}
+    slack_callback_path = "/v1/oauth/slack-retrieve/callback"
+
+    @app.middleware("http")
+    async def enforce_loopback_only(request: Request, call_next):
+        path = request.url.path
+        if path.startswith("/v1/") and path != slack_callback_path:
+            client_host = (request.client.host if request.client else "").strip().lower()
+            if client_host not in loopback_hosts:
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "KiraClaw agentd only accepts local requests for this endpoint."},
+                )
+        return await call_next(request)
 
     def _channel_resource_payload(name: str, gateway: Any) -> dict[str, Any]:
         payload = {

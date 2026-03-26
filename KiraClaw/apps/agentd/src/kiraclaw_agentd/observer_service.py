@@ -172,6 +172,8 @@ class ObserverService:
             return fallback
         if not reply_text:
             reply_text = fallback.reply_text
+        if intent == "queue_next" and self._should_suppress_queue_ack(inbound):
+            reply_text = ""
         return ObserverDecision(intent=intent, reply_text=reply_text)
 
     def summarize_heartbeat(
@@ -250,33 +252,34 @@ class ObserverService:
         if any(token in lowered for token in ["cancel", "stop", "pause", "interrupt"]):
             return ObserverDecision(
                 intent="unsupported_control",
-                reply_text="현재 진행 중인 작업은 수정하거나 취소할 수 없어요. 작업이 끝난 뒤 이어서 반영할게요.",
+                reply_text="The current in-progress task cannot be changed or canceled yet. I'll pick it up after this run finishes.",
             )
         if any(token in message for token in ["취소", "중단", "멈춰", "그만", "바꿔", "대신", "말고"]):
             return ObserverDecision(
                 intent="unsupported_control",
-                reply_text="현재 진행 중인 작업은 수정하거나 취소할 수 없어요. 작업이 끝난 뒤 이어서 반영할게요.",
+                reply_text="The current in-progress task cannot be changed or canceled yet. I'll pick it up after this run finishes.",
             )
         if any(token in lowered for token in ["status", "progress", "doing", "how long", "what are you", "still"]):
             return ObserverDecision(intent="status_query", reply_text=self._fallback_heartbeat(snapshot))
         if any(token in message for token in ["상태", "진행", "어디까지", "뭐 하고", "얼마나", "어떻게 됐"]):
             return ObserverDecision(intent="status_query", reply_text=self._fallback_heartbeat(snapshot))
-        if not context.is_private and not context.mention:
-            return ObserverDecision(
-                intent="queue_next",
-                reply_text="현재 작업이 끝난 뒤 이어서 처리할게요.",
-            )
         return ObserverDecision(
             intent="queue_next",
-            reply_text="현재 작업이 끝난 뒤 이어서 처리할게요.",
+            reply_text="" if self._should_suppress_queue_ack(context) else "I'll handle that after the current task finishes.",
         )
 
     def _fallback_heartbeat(self, snapshot: dict[str, Any]) -> str:
         active_processes = snapshot.get("active_processes") or []
         if active_processes:
-            return f"{self._active_name()}가 현재 작업을 계속 진행 중입니다. 확인이 끝나면 이어서 알려드릴게요."
+            return f"{self._active_name()} is still working on the current task. I'll follow up when there's something useful to share."
 
         prompt = _clip(str(snapshot.get("prompt") or ""), 120)
         if prompt:
-            return f"{self._active_name()}가 현재 요청을 처리하는 중입니다. 확인이 끝나면 이어서 알려드릴게요."
-        return f"{self._active_name()}가 현재 작업을 진행 중입니다."
+            return f"{self._active_name()} is working on the current request. I'll follow up once this step is done."
+        return f"{self._active_name()} is still working on the current task."
+
+    @staticmethod
+    def _should_suppress_queue_ack(context: InflightMessageContext | None) -> bool:
+        if context is None:
+            return False
+        return not context.is_private and not context.mention
