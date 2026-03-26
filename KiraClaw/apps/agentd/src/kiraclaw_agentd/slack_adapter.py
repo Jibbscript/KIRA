@@ -17,7 +17,7 @@ from kiraclaw_agentd.observer_runtime import (
     maybe_route_inflight_message,
     run_heartbeat_loop,
 )
-from kiraclaw_agentd.observer_service import ObserverService
+from kiraclaw_agentd.observer_service import InflightMessageContext, ObserverService
 from kiraclaw_agentd.session_manager import RunRecord, SessionManager
 from kiraclaw_agentd.settings import KiraClawSettings
 from kiraclaw_agentd.tool_event_summary import append_response_trace
@@ -40,7 +40,7 @@ class _BufferedSlackEvent:
     user_name: str
     prompt: str
     reference_context: str | None
-    mention: bool
+    inbound: InflightMessageContext
     client: Any
 
 
@@ -119,6 +119,16 @@ def _ts_value(value: str | None) -> float:
 
 def _is_dm(event: dict[str, Any]) -> bool:
     return event.get("channel_type") == "im"
+
+
+def _build_inflight_context(event: dict[str, Any], *, user_name: str, mention: bool) -> InflightMessageContext:
+    is_private = _is_dm(event)
+    return InflightMessageContext(
+        source="slack-dm" if is_private else "slack-group",
+        mention=mention,
+        is_private=is_private,
+        user_name=user_name,
+    )
 
 
 def _session_id_from_event(event: dict[str, Any]) -> str:
@@ -467,6 +477,7 @@ class SlackGateway:
             channel=channel,
             reply_thread_ts=reply_thread_ts,
             client=client,
+            inbound=_build_inflight_context(event, user_name=user_name, mention=mention),
         ):
             return
 
@@ -481,7 +492,7 @@ class SlackGateway:
                 user_name=user_name,
                 prompt=prompt,
                 reference_context=reference_context,
-                mention=mention,
+                inbound=_build_inflight_context(event, user_name=user_name, mention=mention),
                 client=client,
             ),
         )
@@ -506,7 +517,7 @@ class SlackGateway:
             user_name=last.user_name,
             prompt=merged_prompt or last.prompt,
             reference_context=merged_reference_context,
-            mention=last.mention,
+            inbound=last.inbound,
             client=last.client,
             excluded_timestamps=excluded_timestamps,
         )
@@ -522,7 +533,7 @@ class SlackGateway:
         user_name: str,
         prompt: str,
         reference_context: str | None = None,
-        mention: bool,
+        inbound: InflightMessageContext,
         client,
         excluded_timestamps: set[str] | None = None,
     ) -> None:
@@ -531,7 +542,9 @@ class SlackGateway:
             "thread_ts": reply_thread_ts,
             "user": user,
             "user_name": user_name,
-            "source": "slack-dm" if _is_dm(event) else "slack-group",
+            "source": inbound.source,
+            "mention": inbound.mention,
+            "is_private": inbound.is_private,
         }
         delivery_context = _build_delivery_context_prefix(channel, reply_thread_ts)
         context_prefix = delivery_context
@@ -594,12 +607,14 @@ class SlackGateway:
         channel: str,
         reply_thread_ts: str | None,
         client,
+        inbound: InflightMessageContext,
     ) -> bool:
         decision = await maybe_route_inflight_message(
             self.session_manager,
             self.observer_service if self.settings.observer_enabled else None,
             session_id=session_id,
             prompt=prompt,
+            inbound=inbound,
         )
         if decision is None:
             return False

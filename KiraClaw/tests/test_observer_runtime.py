@@ -3,14 +3,21 @@ from __future__ import annotations
 import asyncio
 
 from kiraclaw_agentd.observer_runtime import maybe_route_inflight_message, run_heartbeat_loop
-from kiraclaw_agentd.observer_service import ObserverDecision
+from kiraclaw_agentd.observer_service import InflightMessageContext, ObserverDecision
 
 
 class _FakeObserverService:
     def __init__(self) -> None:
         self.heartbeat_calls = 0
+        self.last_inbound: InflightMessageContext | None = None
 
-    def classify_inflight(self, prompt: str, snapshot: dict) -> ObserverDecision:
+    def classify_inflight(
+        self,
+        prompt: str,
+        snapshot: dict,
+        inbound: InflightMessageContext | None = None,
+    ) -> ObserverDecision:
+        self.last_inbound = inbound
         if "어디까지" in prompt:
             return ObserverDecision("status_query", "지금 상태를 보고 있습니다.")
         return ObserverDecision("queue_next", "끝난 뒤 이어서 처리할게요.")
@@ -41,14 +48,23 @@ class _FakeSessionManager:
 
 def test_maybe_route_inflight_message_returns_observer_decision() -> None:
     async def scenario() -> None:
+        observer = _FakeObserverService()
         decision = await maybe_route_inflight_message(
             _FakeSessionManager(),
-            _FakeObserverService(),
+            observer,
             session_id="slack:C1:main",
             prompt="지금 어디까지 했어?",
+            inbound=InflightMessageContext(
+                source="slack-group",
+                mention=True,
+                is_private=False,
+                user_name="Jiho Jeon",
+            ),
         )
         assert decision is not None
         assert decision.intent == "status_query"
+        assert observer.last_inbound is not None
+        assert observer.last_inbound.mention is True
 
     asyncio.run(scenario())
 

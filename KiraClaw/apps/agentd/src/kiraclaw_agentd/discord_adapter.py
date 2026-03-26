@@ -16,7 +16,7 @@ from kiraclaw_agentd.observer_runtime import (
     maybe_route_inflight_message,
     run_heartbeat_loop,
 )
-from kiraclaw_agentd.observer_service import ObserverService
+from kiraclaw_agentd.observer_service import InflightMessageContext, ObserverService
 from kiraclaw_agentd.session_manager import RunRecord, SessionManager
 from kiraclaw_agentd.settings import KiraClawSettings
 from kiraclaw_agentd.tool_event_summary import append_response_trace
@@ -37,8 +37,7 @@ class _BufferedDiscordMessage:
     channel_id: int | str
     reply_to_message_id: int | None
     prompt: str
-    user_name: str
-    mention: bool
+    inbound: InflightMessageContext
 
 
 def _normalize_text(text: str) -> str:
@@ -86,6 +85,16 @@ def _matchable_name(user: Any) -> str:
 
 def _is_private_message(message: Any) -> bool:
     return getattr(message, "guild", None) is None
+
+
+def _build_inflight_context(message: Any, *, user_name: str, mention: bool) -> InflightMessageContext:
+    is_private = _is_private_message(message)
+    return InflightMessageContext(
+        source="discord-dm" if is_private else "discord-group",
+        mention=mention,
+        is_private=is_private,
+        user_name=user_name,
+    )
 
 
 def _session_id_from_message(message: Any) -> str:
@@ -252,7 +261,7 @@ def _merge_prompt_text(items: list[_BufferedDiscordMessage]) -> str:
         if not text:
             continue
         text_lines = text.splitlines()
-        lines.append(f"- {item.user_name}: {text_lines[0]}")
+        lines.append(f"- {item.inbound.user_name}: {text_lines[0]}")
         for continuation in text_lines[1:]:
             lines.append(f"  {continuation}")
     return "\n".join(lines) if len(lines) > 1 else ""
@@ -440,6 +449,7 @@ class DiscordGateway:
             prompt=prompt,
             channel_id=channel_id,
             reply_to_message_id=reply_to_message_id,
+            inbound=_build_inflight_context(message, user_name=user_name, mention=mention),
         ):
             return
         await self._debouncer.enqueue(
@@ -450,8 +460,7 @@ class DiscordGateway:
                 channel_id=channel_id,
                 reply_to_message_id=reply_to_message_id,
                 prompt=prompt,
-                user_name=user_name,
-                mention=mention,
+                inbound=_build_inflight_context(message, user_name=user_name, mention=mention),
             ),
         )
 
@@ -464,8 +473,7 @@ class DiscordGateway:
             channel_id=last.channel_id,
             reply_to_message_id=last.reply_to_message_id,
             prompt=merged_prompt or last.prompt,
-            user_name=last.user_name,
-            mention=last.mention,
+            inbound=last.inbound,
         )
 
     async def _run_for_message(
@@ -476,15 +484,16 @@ class DiscordGateway:
         channel_id: int | str,
         reply_to_message_id: int | None,
         prompt: str,
-        user_name: str,
-        mention: bool,
+        inbound: InflightMessageContext,
     ) -> None:
         metadata = {
-            "source": "discord-dm" if _is_private_message(message) else "discord-group",
+            "source": inbound.source,
             "channel": str(channel_id),
             "channel_id": str(channel_id),
             "user": str(getattr(getattr(message, "author", None), "id", "")),
-            "user_name": user_name,
+            "user_name": inbound.user_name,
+            "mention": inbound.mention,
+            "is_private": inbound.is_private,
         }
         delivery_context = _build_delivery_context_prefix(channel_id, reply_to_message_id)
         context_prefix = delivery_context
@@ -533,12 +542,14 @@ class DiscordGateway:
         prompt: str,
         channel_id: int | str,
         reply_to_message_id: int | None,
+        inbound: InflightMessageContext,
     ) -> bool:
         decision = await maybe_route_inflight_message(
             self.session_manager,
             self.observer_service if self.settings.observer_enabled else None,
             session_id=session_id,
             prompt=prompt,
+            inbound=inbound,
         )
         if decision is None:
             return False

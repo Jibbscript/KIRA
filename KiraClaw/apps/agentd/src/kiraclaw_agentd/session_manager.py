@@ -511,6 +511,8 @@ class SessionManager:
             "state": record.state,
             "prompt": record.prompt,
             "source": str(record.metadata.get("source", "")),
+            "run_mention": bool(record.metadata.get("mention", False)),
+            "run_is_private": bool(record.metadata.get("is_private", False)),
             "created_at": record.created_at,
             "started_at": record.started_at,
             "elapsed_seconds": elapsed_seconds,

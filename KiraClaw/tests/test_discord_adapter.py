@@ -1,5 +1,6 @@
 import asyncio
 
+from kiraclaw_agentd.observer_service import InflightMessageContext
 from kiraclaw_agentd.discord_adapter import (
     DiscordGateway,
     _build_delivery_context_prefix,
@@ -170,6 +171,22 @@ class _FakeSessionManager:
         )
 
 
+class _FakeObserverService:
+    def __init__(self) -> None:
+        self.last_inbound = None
+
+    def classify_inflight(self, prompt: str, snapshot: dict, inbound=None) -> object:
+        from kiraclaw_agentd.observer_service import ObserverDecision
+
+        self.last_inbound = inbound
+        if "어디까지" in prompt:
+            return ObserverDecision("status_query", "지금 상태를 확인 중입니다.")
+        return ObserverDecision("queue_next", "끝난 뒤 이어서 처리할게요.")
+
+    def summarize_heartbeat(self, snapshot: dict) -> str:
+        return "아직 작업 중입니다."
+
+
 def test_discord_run_for_message_uses_session_manager_and_publish(tmp_path) -> None:
     async def scenario() -> None:
         settings = KiraClawSettings(
@@ -201,13 +218,64 @@ def test_discord_run_for_message_uses_session_manager_and_publish(tmp_path) -> N
             channel_id=123,
             reply_to_message_id=50,
             prompt="hello",
-            user_name="Jiho",
-            mention=False,
+            inbound=InflightMessageContext(source="discord-dm", mention=False, is_private=True, user_name="Jiho"),
         )
 
         assert session_manager.calls[0]["metadata"]["source"] == "discord-dm"
+        assert session_manager.calls[0]["metadata"]["mention"] is False
+        assert session_manager.calls[0]["metadata"]["is_private"] is True
         assert "channel_id: 123" in session_manager.calls[0]["context_prefix"]
         assert sent == [{"channel_id": 123, "text": "discord ok", "reply_to_message_id": 50}]
+
+    asyncio.run(scenario())
+
+
+def test_discord_inflight_status_query_is_answered_without_queueing(tmp_path) -> None:
+    async def scenario() -> None:
+        settings = KiraClawSettings(
+            data_dir=tmp_path / "data",
+            workspace_dir=tmp_path / "workspace",
+            home_mode="modern",
+            slack_enabled=False,
+            discord_enabled=False,
+        )
+        session_manager = _FakeSessionManager()
+        session_manager.has_active_run = lambda session_id: True  # type: ignore[attr-defined]
+        session_manager.build_observer_snapshot = lambda session_id: {  # type: ignore[attr-defined]
+            "session_id": session_id,
+            "source": "discord-group",
+            "state": "running",
+            "prompt": "작업 중",
+            "elapsed_seconds": 5,
+            "recent_tool_events": [],
+            "active_processes": [],
+            "run_mention": True,
+            "run_is_private": False,
+        }
+        observer = _FakeObserverService()
+        gateway = DiscordGateway(session_manager, settings, observer_service=observer)
+        gateway.identity = {"id": 999, "name": "kira"}
+        sent: list[dict] = []
+
+        async def fake_send(channel_id, text, reply_to_message_id=None):
+            sent.append({"channel_id": channel_id, "text": text, "reply_to_message_id": reply_to_message_id})
+
+        gateway.send_message = fake_send  # type: ignore[method-assign]
+
+        handled = await gateway._maybe_handle_inflight_message(
+            session_id="discord:777:main",
+            prompt="지금 어디까지 했어?",
+            channel_id=777,
+            reply_to_message_id=10,
+            inbound=InflightMessageContext(source="discord-group", mention=True, is_private=False, user_name="Jiho"),
+        )
+
+        assert handled is True
+        assert session_manager.calls == []
+        assert observer.last_inbound is not None
+        assert observer.last_inbound.mention is True
+        assert observer.last_inbound.is_private is False
+        assert sent == [{"channel_id": 777, "text": "지금 상태를 확인 중입니다.", "reply_to_message_id": 10}]
 
     asyncio.run(scenario())
 
@@ -263,8 +331,7 @@ def test_discord_run_for_group_message_includes_recent_channel_history(tmp_path)
             channel_id=123,
             reply_to_message_id=50,
             prompt="current question",
-            user_name="Jiho",
-            mention=False,
+            inbound=InflightMessageContext(source="discord-group", mention=False, is_private=False, user_name="Jiho"),
         )
 
         context_prefix = session_manager.calls[0]["context_prefix"]

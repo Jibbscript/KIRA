@@ -1,4 +1,5 @@
 import asyncio
+from kiraclaw_agentd.observer_service import InflightMessageContext
 from kiraclaw_agentd.engine import RunResult
 from kiraclaw_agentd.session_manager import RunRecord
 from kiraclaw_agentd.settings import KiraClawSettings
@@ -127,6 +128,22 @@ class _FakeSessionManager:
         )
 
 
+class _FakeObserverService:
+    def __init__(self) -> None:
+        self.last_inbound = None
+
+    def classify_inflight(self, prompt: str, snapshot: dict, inbound=None) -> object:
+        from kiraclaw_agentd.observer_service import ObserverDecision
+
+        self.last_inbound = inbound
+        if "어디까지" in prompt:
+            return ObserverDecision("status_query", "지금 상태를 확인 중입니다.")
+        return ObserverDecision("queue_next", "끝난 뒤 이어서 처리할게요.")
+
+    def summarize_heartbeat(self, snapshot: dict) -> str:
+        return "아직 작업 중입니다."
+
+
 def test_telegram_run_for_message_uses_session_manager_and_publish(tmp_path) -> None:
     async def scenario() -> None:
         settings = KiraClawSettings(
@@ -164,13 +181,69 @@ def test_telegram_run_for_message_uses_session_manager_and_publish(tmp_path) -> 
             chat_id=123,
             reply_to_message_id=None,
             prompt="hello",
-            user_name="@jiho",
-            mention=False,
+            inbound=InflightMessageContext(source="telegram-dm", mention=False, is_private=True, user_name="@jiho"),
         )
 
         assert session_manager.calls[0]["metadata"]["source"] == "telegram-dm"
+        assert session_manager.calls[0]["metadata"]["mention"] is False
+        assert session_manager.calls[0]["metadata"]["is_private"] is True
         assert "chat_id: 123" in session_manager.calls[0]["context_prefix"]
         assert sent == [{"chat_id": 123, "text": "telegram ok", "reply_to_message_id": None}]
+
+    asyncio.run(scenario())
+
+
+def test_telegram_inflight_status_query_is_answered_without_queueing(tmp_path) -> None:
+    async def scenario() -> None:
+        settings = KiraClawSettings(
+            data_dir=tmp_path / "data",
+            workspace_dir=tmp_path / "workspace",
+            home_mode="modern",
+            slack_enabled=False,
+            telegram_enabled=False,
+        )
+        session_manager = _FakeSessionManager()
+        session_manager.has_active_run = lambda session_id: True  # type: ignore[attr-defined]
+        session_manager.build_observer_snapshot = lambda session_id: {  # type: ignore[attr-defined]
+            "session_id": session_id,
+            "source": "telegram-group",
+            "state": "running",
+            "prompt": "작업 중",
+            "elapsed_seconds": 5,
+            "recent_tool_events": [],
+            "active_processes": [],
+            "run_mention": True,
+            "run_is_private": False,
+        }
+        observer = _FakeObserverService()
+        gateway = TelegramGateway(session_manager, settings, observer_service=observer)
+        sent: list[dict] = []
+
+        async def fake_send(chat_id, text, reply_to_message_id=None):
+            sent.append(
+                {
+                    "chat_id": chat_id,
+                    "text": text,
+                    "reply_to_message_id": reply_to_message_id,
+                }
+            )
+
+        gateway.send_message = fake_send  # type: ignore[method-assign]
+
+        handled = await gateway._maybe_handle_inflight_message(
+            session_id="telegram:-1:main",
+            prompt="지금 어디까지 했어?",
+            chat_id=-1,
+            reply_to_message_id=44,
+            inbound=InflightMessageContext(source="telegram-group", mention=True, is_private=False, user_name="@jiho"),
+        )
+
+        assert handled is True
+        assert session_manager.calls == []
+        assert observer.last_inbound is not None
+        assert observer.last_inbound.mention is True
+        assert observer.last_inbound.is_private is False
+        assert sent == [{"chat_id": -1, "text": "지금 상태를 확인 중입니다.", "reply_to_message_id": 44}]
 
     asyncio.run(scenario())
 

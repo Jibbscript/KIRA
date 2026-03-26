@@ -2,6 +2,7 @@ import asyncio
 import logging
 
 from kiraclaw_agentd.engine import RunResult
+from kiraclaw_agentd.observer_service import InflightMessageContext
 from kiraclaw_agentd.slack_adapter import (
     SlackGateway,
     _build_delivery_context_prefix,
@@ -136,8 +137,13 @@ class _FakeSessionManager:
 
 
 class _FakeObserverService:
-    def classify_inflight(self, prompt: str, snapshot: dict) -> object:
+    def __init__(self) -> None:
+        self.last_inbound = None
+
+    def classify_inflight(self, prompt: str, snapshot: dict, inbound=None) -> object:
         from kiraclaw_agentd.observer_service import ObserverDecision
+
+        self.last_inbound = inbound
 
         if "어디까지" in prompt:
             return ObserverDecision("status_query", "지금 상태를 확인 중입니다.")
@@ -192,7 +198,8 @@ def test_slack_inflight_status_query_is_answered_without_queueing(tmp_path) -> N
             "recent_tool_events": [],
             "active_processes": [],
         }
-        gateway = SlackGateway(session_manager, settings, observer_service=_FakeObserverService())
+        observer = _FakeObserverService()
+        gateway = SlackGateway(session_manager, settings, observer_service=observer)
         client = _FakeSlackClient()
 
         handled = await gateway._maybe_handle_inflight_event(
@@ -201,10 +208,18 @@ def test_slack_inflight_status_query_is_answered_without_queueing(tmp_path) -> N
             channel="C1",
             reply_thread_ts="111.222",
             client=client,
+            inbound=InflightMessageContext(
+                source="slack-group",
+                mention=True,
+                is_private=False,
+                user_name="Jiho Jeon",
+            ),
         )
 
         assert handled is True
         assert session_manager.calls == []
+        assert observer.last_inbound is not None
+        assert observer.last_inbound.mention is True
         assert client.sent_messages == [
             {"channel": "C1", "text": "지금 상태를 확인 중입니다.", "thread_ts": "111.222"}
         ]
@@ -271,7 +286,7 @@ def test_slack_run_for_event_emits_heartbeat_before_final_reply(tmp_path) -> Non
             user="U1",
             user_name="Jiho Jeon",
             prompt="hello",
-            mention=False,
+            inbound=InflightMessageContext(source="slack-group", mention=False, is_private=False, user_name="Jiho Jeon"),
             client=client,
         )
 
@@ -338,7 +353,7 @@ def test_slack_queued_followup_does_not_start_duplicate_heartbeat(tmp_path) -> N
             user="U1",
             user_name="Jiho Jeon",
             prompt="다음엔 이것도 해줘",
-            mention=False,
+            inbound=InflightMessageContext(source="slack-group", mention=False, is_private=False, user_name="Jiho Jeon"),
             client=client,
         )
 
@@ -404,9 +419,12 @@ def test_run_for_event_bootstraps_only_when_session_has_no_local_records(tmp_pat
             user="U1",
             user_name="Jiho Jeon",
             prompt="hello",
-            mention=False,
+            inbound=InflightMessageContext(source="slack-dm", mention=False, is_private=True, user_name="Jiho Jeon"),
             client=client,
         )
+        assert session_manager.calls[0]["metadata"]["source"] == "slack-dm"
+        assert session_manager.calls[0]["metadata"]["mention"] is False
+        assert session_manager.calls[0]["metadata"]["is_private"] is True
         assert "channel_id: D1" in session_manager.calls[0]["context_prefix"]
         assert "Slack bootstrap" in session_manager.calls[0]["context_prefix"]
 
@@ -429,7 +447,7 @@ def test_run_for_event_bootstraps_only_when_session_has_no_local_records(tmp_pat
             user="U1",
             user_name="Jiho Jeon",
             prompt="hello again",
-            mention=False,
+            inbound=InflightMessageContext(source="slack-dm", mention=False, is_private=True, user_name="Jiho Jeon"),
             client=client,
         )
         assert "channel_id: D1" in session_manager.calls[1]["context_prefix"]
@@ -477,7 +495,7 @@ def test_run_for_channel_event_refreshes_bootstrap_even_with_local_records(tmp_p
             user="U1",
             user_name="Jiho Jeon",
             prompt="channel question",
-            mention=False,
+            inbound=InflightMessageContext(source="slack-group", mention=False, is_private=False, user_name="Jiho Jeon"),
             client=client,
         )
 
@@ -525,7 +543,7 @@ def test_run_for_thread_event_refreshes_bootstrap_even_with_local_records(tmp_pa
             user="U1",
             user_name="Jiho Jeon",
             prompt="thread question",
-            mention=False,
+            inbound=InflightMessageContext(source="slack-group", mention=False, is_private=False, user_name="Jiho Jeon"),
             client=client,
         )
 
@@ -561,7 +579,7 @@ def test_run_for_thread_event_warns_when_history_unavailable(tmp_path) -> None:
             user="U1",
             user_name="Jiho Jeon",
             prompt="thread question",
-            mention=False,
+            inbound=InflightMessageContext(source="slack-group", mention=False, is_private=False, user_name="Jiho Jeon"),
             client=client,
         )
 

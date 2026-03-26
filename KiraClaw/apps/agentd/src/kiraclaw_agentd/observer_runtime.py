@@ -7,7 +7,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from kiraclaw_agentd.observer_service import ObserverDecision, ObserverService
+from kiraclaw_agentd.observer_service import InflightMessageContext, ObserverDecision, ObserverService
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +46,7 @@ async def maybe_route_inflight_message(
     *,
     session_id: str,
     prompt: str,
+    inbound: InflightMessageContext | None = None,
 ) -> ObserverDecision | None:
     if observer_service is None:
         return None
@@ -61,7 +62,7 @@ async def maybe_route_inflight_message(
     if not snapshot:
         return None
 
-    return await asyncio.to_thread(observer_service.classify_inflight, prompt, snapshot)
+    return await asyncio.to_thread(observer_service.classify_inflight, prompt, snapshot, inbound)
 
 
 async def run_heartbeat_loop(

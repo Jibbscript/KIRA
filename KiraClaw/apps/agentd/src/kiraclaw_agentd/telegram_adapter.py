@@ -15,7 +15,7 @@ from kiraclaw_agentd.observer_runtime import (
     maybe_route_inflight_message,
     run_heartbeat_loop,
 )
-from kiraclaw_agentd.observer_service import ObserverService
+from kiraclaw_agentd.observer_service import InflightMessageContext, ObserverService
 from kiraclaw_agentd.session_manager import RunRecord, SessionManager
 from kiraclaw_agentd.settings import KiraClawSettings
 from kiraclaw_agentd.tool_event_summary import append_response_trace
@@ -31,8 +31,7 @@ class _BufferedTelegramMessage:
     chat_id: int | str
     reply_to_message_id: int | None
     prompt: str
-    user_name: str
-    mention: bool
+    inbound: InflightMessageContext
 
 
 def _normalize_text(text: str) -> str:
@@ -86,6 +85,16 @@ def _display_name(user: dict[str, Any]) -> str:
 
 def _is_private_chat(message: dict[str, Any]) -> bool:
     return str(message.get("chat", {}).get("type", "")) == "private"
+
+
+def _build_inflight_context(message: dict[str, Any], *, user_name: str, mention: bool) -> InflightMessageContext:
+    is_private = _is_private_chat(message)
+    return InflightMessageContext(
+        source="telegram-dm" if is_private else "telegram-group",
+        mention=mention,
+        is_private=is_private,
+        user_name=user_name,
+    )
 
 
 def _clean_prompt_text(
@@ -303,7 +312,7 @@ def _merge_prompt_text(items: list[_BufferedTelegramMessage]) -> str:
         if not text:
             continue
         text_lines = text.splitlines()
-        lines.append(f"- {item.user_name}: {text_lines[0]}")
+        lines.append(f"- {item.inbound.user_name}: {text_lines[0]}")
         for continuation in text_lines[1:]:
             lines.append(f"  {continuation}")
     return "\n".join(lines) if len(lines) > 1 else ""
@@ -472,6 +481,7 @@ class TelegramGateway:
             prompt=prompt,
             chat_id=chat_id,
             reply_to_message_id=reply_to_message_id,
+            inbound=_build_inflight_context(message, user_name=user_name, mention=mention),
         ):
             return
         await self._debouncer.enqueue(
@@ -482,8 +492,7 @@ class TelegramGateway:
                 chat_id=chat_id,
                 reply_to_message_id=reply_to_message_id,
                 prompt=prompt,
-                user_name=user_name,
-                mention=mention,
+                inbound=_build_inflight_context(message, user_name=user_name, mention=mention),
             ),
         )
 
@@ -496,8 +505,7 @@ class TelegramGateway:
             chat_id=last.chat_id,
             reply_to_message_id=last.reply_to_message_id,
             prompt=merged_prompt or last.prompt,
-            user_name=last.user_name,
-            mention=last.mention,
+            inbound=last.inbound,
         )
 
     async def _run_for_message(
@@ -508,14 +516,15 @@ class TelegramGateway:
         chat_id: int | str,
         reply_to_message_id: int | None,
         prompt: str,
-        user_name: str,
-        mention: bool,
+        inbound: InflightMessageContext,
     ) -> None:
         metadata = {
-            "source": "telegram-dm" if _is_private_chat(message) else "telegram-group",
+            "source": inbound.source,
             "chat_id": str(chat_id),
             "user": str(message.get("from", {}).get("id", "")),
-            "user_name": user_name,
+            "user_name": inbound.user_name,
+            "mention": inbound.mention,
+            "is_private": inbound.is_private,
         }
         context_prefix = _build_delivery_context_prefix(chat_id, reply_to_message_id)
         has_active_run = getattr(self.session_manager, "has_active_run", None)
@@ -554,12 +563,14 @@ class TelegramGateway:
         prompt: str,
         chat_id: int | str,
         reply_to_message_id: int | None,
+        inbound: InflightMessageContext,
     ) -> bool:
         decision = await maybe_route_inflight_message(
             self.session_manager,
             self.observer_service if self.settings.observer_enabled else None,
             session_id=session_id,
             prompt=prompt,
+            inbound=inbound,
         )
         if decision is None:
             return False
