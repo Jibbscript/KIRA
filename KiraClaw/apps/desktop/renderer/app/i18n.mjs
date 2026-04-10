@@ -54,6 +54,10 @@ const translations = {
     home: {
       daemonBadge: "KIRA Engine offline",
       myNameIs: "My name is {{name}}",
+      greetingMorning: "Good morning. I'm here.",
+      greetingAfternoon: "Good afternoon. I'm here.",
+      greetingEvening: "Good evening. I'm here.",
+      greetingNight: "It's late. I'm here.",
       starting: "Starting...",
       restarting: "Restarting...",
       stopping: "Stopping...",
@@ -405,6 +409,10 @@ const translations = {
     home: {
       daemonBadge: "KIRA 엔진 오프라인",
       myNameIs: "내 이름은 {{name}}",
+      greetingMorning: "좋은 아침입니다. 곁에 있겠습니다.",
+      greetingAfternoon: "좋은 오후입니다. 곁에 있겠습니다.",
+      greetingEvening: "좋은 저녁입니다. 곁에 있겠습니다.",
+      greetingNight: "늦은 시간이네요. 곁에 있겠습니다.",
       starting: "시작 중...",
       restarting: "재시작 중...",
       stopping: "중지 중...",

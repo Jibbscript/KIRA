@@ -2,6 +2,24 @@ import { byId, setText } from "./dom.mjs";
 import { getAgentName } from "./branding.mjs";
 import { t } from "./i18n.mjs";
 
+function getHumanizedGreeting() {
+  const hour = new Date().getHours();
+
+  if (hour >= 5 && hour < 12) {
+    return t("home.greetingMorning");
+  }
+
+  if (hour >= 12 && hour < 18) {
+    return t("home.greetingAfternoon");
+  }
+
+  if (hour >= 18 && hour < 23) {
+    return t("home.greetingEvening");
+  }
+
+  return t("home.greetingNight");
+}
+
 function applyStatusChip(element, state, onlineText, offlineText, pendingText) {
   if (!element) {
     return;
@@ -37,7 +55,6 @@ export function updateHomeStatus(state, daemonStatus, runtime) {
   const restartButton = byId("restart-daemon");
   const stopButton = byId("stop-daemon");
   const actionBanner = byId("engine-action-banner");
-  const actionDot = byId("engine-action-dot");
   const { engineAction } = state;
   const hasKnownStatus = Boolean(daemonStatus) || Boolean(runtime);
   const isOnline = Boolean(runtime) || Boolean(daemonStatus?.running);
@@ -55,7 +72,7 @@ export function updateHomeStatus(state, daemonStatus, runtime) {
     avatarShell.classList.toggle("offline", hasKnownStatus && !isOnline);
   }
 
-  setText(heroTitle, "KiraClaw");
+  setText(heroTitle, getHumanizedGreeting());
   setText(heroVersion, state.appMeta?.version ? `v${state.appMeta.version}` : "");
   renderUpdaterState(state.updater, updaterPanel, updaterAction, updaterActionLabel);
   setText(agentBubble, t("home.myNameIs", { name: agentName }));
@@ -71,15 +88,15 @@ export function updateHomeStatus(state, daemonStatus, runtime) {
   }
 
   if (!runtime || !isOnline) {
-    setActionBanner(actionBanner, actionDot, engineAction, statusState);
+    setActionBanner(actionBanner, engineAction, statusState);
     return;
   }
 
-  setActionBanner(actionBanner, actionDot, engineAction, statusState);
+  setActionBanner(actionBanner, engineAction, statusState);
 }
 
-function setActionBanner(element, dot, engineAction, statusState) {
-  if (!element || !dot) {
+function setActionBanner(element, engineAction, statusState) {
+  if (!element) {
     return;
   }
 
@@ -90,7 +107,6 @@ function setActionBanner(element, dot, engineAction, statusState) {
 
   element.hidden = !Boolean(message);
   element.className = `engine-action-banner ${tone}`;
-  dot.className = `engine-action-dot ${tone}`;
   setText(byId("engine-action-message"), message);
 }
 
