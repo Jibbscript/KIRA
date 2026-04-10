@@ -118,15 +118,24 @@
             <video class="landing-video-bg" autoplay muted loop playsinline preload="auto" aria-hidden="true">
               <source src="https://bridge.pubg.com/images/main/keyart_movie.webm" type="video/webm" />
             </video>
-            <div class="landing-brandlockup">
-              <img id="landing-logo-image" class="landing-logo" src="../assets/krafton-horizontal-logo-black.svg" alt="KRAFTON" />
+            <div class="landing-corner-stack">
+              <div class="landing-brandlockup">
+                <img id="landing-logo-image" class="landing-logo" src="../assets/krafton-horizontal-logo-black.svg" alt="KRAFTON" />
+              </div>
+              <div class="landing-meta-panel">
+                <div id="hero-version" class="hero-version">v0.0.0</div>
+                <div id="updater-panel" class="updater-panel" hidden>
+                  <button id="updater-action" class="ghost updater-action" type="button">
+                    <span id="updater-action-label" class="updater-action-label"></span>
+                  </button>
+                </div>
+              </div>
             </div>
             <div class="landing-center">
-              <div id="landing-avatar-shell" class="landing-avatar-shell offline" aria-hidden="true">
-                <span class="avatar-halo"></span>
-                <div id="agent-bubble" class="agent-bubble">My name is KIRA</div>
+              <div class="hero-title-row">
+                <img class="hero-title-icon" src="../assets/kira-icon.svg" alt="" aria-hidden="true" />
+                <h3 id="hero-title">KiraClaw</h3>
               </div>
-              <h3 id="hero-title">KiraClaw</h3>
               <div class="button-row landing-actions">
                 <button id="start-daemon" class="primary" data-i18n="common.startEngine">Start Engine</button>
                 <button id="restart-daemon" class="ghost" data-i18n="common.restart">Restart</button>
@@ -134,14 +143,6 @@
               </div>
               <div id="engine-action-banner" class="engine-action-banner neutral" hidden>
                 <span id="engine-action-message"></span>
-              </div>
-            </div>
-            <div class="landing-meta-panel">
-              <div id="hero-version" class="hero-version">v0.0.0</div>
-              <div id="updater-panel" class="updater-panel" hidden>
-                <button id="updater-action" class="ghost updater-action" type="button">
-                  <span id="updater-action-label" class="updater-action-label"></span>
-                </button>
               </div>
             </div>
           </section>

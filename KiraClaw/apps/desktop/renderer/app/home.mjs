@@ -2,22 +2,22 @@ import { byId, setText } from "./dom.mjs";
 import { getAgentName } from "./branding.mjs";
 import { t } from "./i18n.mjs";
 
-function getHumanizedGreeting() {
+function getHumanizedGreeting(name) {
   const hour = new Date().getHours();
 
   if (hour >= 5 && hour < 12) {
-    return t("home.greetingMorning");
+    return t("home.greetingMorning", { name });
   }
 
   if (hour >= 12 && hour < 18) {
-    return t("home.greetingAfternoon");
+    return t("home.greetingAfternoon", { name });
   }
 
   if (hour >= 18 && hour < 23) {
-    return t("home.greetingEvening");
+    return t("home.greetingEvening", { name });
   }
 
-  return t("home.greetingNight");
+  return t("home.greetingNight", { name });
 }
 
 function applyStatusChip(element, state, onlineText, offlineText, pendingText) {
@@ -44,13 +44,11 @@ function applyStatusChip(element, state, onlineText, offlineText, pendingText) {
 export function updateHomeStatus(state, daemonStatus, runtime) {
   const agentName = getAgentName(state);
   const landingPanel = byId("landing-panel");
-  const avatarShell = byId("landing-avatar-shell");
   const heroTitle = byId("hero-title");
   const heroVersion = byId("hero-version");
   const updaterPanel = byId("updater-panel");
   const updaterAction = byId("updater-action");
   const updaterActionLabel = byId("updater-action-label");
-  const agentBubble = byId("agent-bubble");
   const startButton = byId("start-daemon");
   const restartButton = byId("restart-daemon");
   const stopButton = byId("stop-daemon");
@@ -67,15 +65,9 @@ export function updateHomeStatus(state, daemonStatus, runtime) {
     landingPanel.classList.toggle("offline", hasKnownStatus && !isOnline);
   }
 
-  if (avatarShell) {
-    avatarShell.classList.toggle("online", isOnline);
-    avatarShell.classList.toggle("offline", hasKnownStatus && !isOnline);
-  }
-
-  setText(heroTitle, getHumanizedGreeting());
+  setText(heroTitle, getHumanizedGreeting(agentName));
   setText(heroVersion, state.appMeta?.version ? `v${state.appMeta.version}` : "");
   renderUpdaterState(state.updater, updaterPanel, updaterAction, updaterActionLabel);
-  setText(agentBubble, t("home.myNameIs", { name: agentName }));
 
   if (startButton && restartButton && stopButton) {
     startButton.disabled = engineAction.busy || isOnline;
