@@ -185,9 +185,13 @@ def test_process_manager_emits_started_and_finished_events(tmp_path) -> None:
         command=_python_command("import time; print('hi'); time.sleep(0.1)"),
         owner_session_id="desktop:local",
     )
-    manager.wait_briefly(session.session_id, 10)
-    time.sleep(0.2)
-    manager.poll(session.session_id)
+    deadline = time.time() + 1.0
+    while time.time() < deadline:
+        manager.wait_briefly(session.session_id, 50)
+        snapshot = manager.poll(session.session_id)
+        if snapshot["status"] == "completed":
+            break
+        time.sleep(0.05)
 
     actions = [action for action, _snapshot in events]
     assert "started" in actions

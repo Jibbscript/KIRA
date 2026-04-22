@@ -98,6 +98,14 @@ jobs:
           cd ${{ env.CLAW_DESKTOP_DIR }}
           npm run build:public:mac
 
+      - name: Build macOS public DMG
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          bash "${{ env.CLAW_WORKING_DIR }}/scripts/build_desktop_dmg.sh" \
+            "${{ env.CLAW_DESKTOP_DIR }}/dist-public/mac-arm64/KiraClaw.app" \
+            "${{ env.CLAW_DESKTOP_DIR }}/dist-public/KiraClaw-${VERSION}-arm64.dmg" \
+            "KiraClaw ${VERSION}"
+
       - name: Verify macOS packaged app layout
         run: |
           export NVM_DIR="$HOME/.nvm"

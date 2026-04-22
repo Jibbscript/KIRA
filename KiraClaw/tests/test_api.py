@@ -363,8 +363,16 @@ def test_resources_endpoint_refreshes_background_process_status(tmp_path: Path, 
             command=command,
             owner_session_id="desktop:test",
         )
-        time.sleep(0.2)
-        response = client.get("/v1/resources")
+        deadline = time.time() + 1.0
+        response = None
+        while time.time() < deadline:
+            response = client.get("/v1/resources")
+            body = response.json()
+            resources = {(row["kind"], row["id"]): row for row in body["resources"]}
+            process_resource = resources[("process", session.session_id)]
+            if process_resource["state"] == "completed":
+                break
+            time.sleep(0.05)
 
     assert response.status_code == 200
     body = response.json()
